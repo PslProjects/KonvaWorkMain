@@ -1,0 +1,233 @@
+<div class="search-page">
+  <!-- ⭐ GLOBAL LOADING OVERLAY -->
+  <div class="loading-overlay" *ngIf="loading">
+    <div class="loading-spinner"></div>
+    <div class="loading-text">
+      Loading<span class="loading-dots">
+        <span>.</span><span>.</span><span>.</span>
+      </span>
+    </div>
+  </div>
+
+  <div class="topbar">
+    <div class="menu">
+      <span [class.active]="activeTab === 'search'" (click)="setSearchTab()">Search Results</span>
+      <span [class.active]="activeTab === 'overall'" (click)="setOverallTab()">Overall Performance</span>
+    </div>
+  </div>
+
+  <!-- SEARCH HEADER -->
+  <div class="header" *ngIf="activeTab === 'search'">
+    <h1>Search User Results</h1>
+    <div class="search-box">
+      <input type="text" placeholder="Search by username" [(ngModel)]="username" (keyup.enter)="doUserSearch()" />
+      <button (click)="doUserSearch()">Search</button>
+    </div>
+  </div>
+
+  <!-- SEARCH CARDS -->
+  <div *ngIf="activeTab === 'search'">
+    <div class="cards">
+      <div class="card">
+        <div class="center-box">
+          <p><b>Total Tests</b></p>
+          <h2>{{ searchTotalTests }}</h2>
+        </div>
+      </div>
+      <div class="card blue">
+        <div class="center-box">
+          <p><b>Passed</b></p>
+          <h2>{{ searchPassCount }}</h2>
+          <span class="percent-badge">{{ searchPassRate }}%</span>
+        </div>
+      </div>
+      <div class="card red">
+        <div class="center-box">
+          <p><b>Failed</b></p>
+          <h2>{{ searchFailCount }}</h2>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- OVERALL -->
+  <div *ngIf="activeTab === 'overall'">
+
+    <div *ngIf="startDate || endDate" class="filter-badge">
+<span>✅ Filtered: {{ overallResults.length }} / {{ overallTotalTests }} results</span>
+      <button (click)="clearFilters()" class="clear-btn">Clear All</button>
+    </div>
+
+    <div class="filter-header">
+      <h2>📊 Overall Performance Analytics</h2>
+
+      <div class="date-filters">
+        <div class="filter-group">
+          <label><b>Start Date</b></label>
+          <input type="date" [(ngModel)]="startDate" (change)="onDateFilterChange()" class="date-input" />
+        </div>
+
+        <div class="filter-group">
+          <label><b>End Date</b></label>
+          <input type="date" [(ngModel)]="endDate" (change)="onDateFilterChange()" class="date-input" />
+        </div>
+
+        <!-- <button (click)="loadOverallPerformance()" class="filter-btn">🔄 Refresh Data</button> -->
+      </div>
+
+    </div>
+    <!-- card detail -->
+
+    <div class="cards">
+      <div class="card">
+        <div class="center-box">
+          <p><b>Total Tests</b></p>
+          <h2>{{ overallTotalTests }}</h2>
+        </div>
+      </div>
+
+      <div class="card blue">
+        <div class="center-box">
+          <p><b>Passed</b></p>
+          <h2>{{ overallPassCount }}</h2>
+          <span class="percent-badge">{{ overallPassRate }}%</span>
+        </div>
+      </div>
+
+      <div class="card red">
+        <div class="center-box">
+          <p><b>Failed</b></p>
+          <h2>{{ overallFailCount }}</h2>
+        </div>
+      </div>
+    </div>
+  </div>
+  <!-- result for person -->
+  <div *ngIf="activeTab === 'search' && username" class="user-result-heading">
+    <h2>Results for "{{ username }}"</h2>
+  </div>
+
+  <div class="results-container">
+
+    <div class="recent-header-row">
+      <!-- TABLE -->
+      <div class="results-container">
+
+        <div class="recent-header-row">
+          <h3>{{ activeTab === 'search' ? 'Recent Results' : 'All Results' }}</h3>
+        </div>
+
+        <!-- ✅ HEADER -->
+        <div class="table-header" [ngClass]="{'overall-table': activeTab === 'overall'}">
+
+          <div class="col">Result</div>
+          <div class="col">Success Rate</div>
+
+          <!-- ONLY OVERALL -->
+          <div class="col" *ngIf="activeTab === 'overall'">User</div>
+
+          <div class="col">Date</div>
+          <div class="col">Admin</div>
+          <div class="col">Details</div>
+        </div>
+
+        <div class="scrollable-body">
+
+          <!-- SEARCH (UNCHANGED) -->
+          <ng-container *ngIf="activeTab === 'search'">
+            <div *ngFor="let r of searchResults" class="result-row">
+
+              <div class="col">
+                <div class="status-circle" [class.pass]="r.status === 'PASS'" [class.fail]="r.status === 'FAIL'">
+                  {{ r.status }}
+                </div>
+
+              </div>
+
+              <div class="col">
+                <div class="percent-circle" [class.pass]="r.status === 'PASS'" [class.fail]="r.status === 'FAIL'">
+                  {{ r.status === 'PASS' ? r.resultPercentage : 0 }}%
+                </div>
+              </div>
+
+              <div class="col">{{ r.startTime | date:'MMM d, yyyy' }}</div>
+              <div class="col">{{ r.adminName }}</div>
+              <div class="col action" (click)="openDetails(r.id); $event.stopPropagation()">
+                View Details →
+              </div>
+            </div>
+
+            <div class="pagination-wrapper" *ngIf="activeTab === 'search' && searchTotalPages > 1">
+              <div class="pagination">
+            
+                <button (click)="prevSearchPage()" [disabled]="searchPage === 0">
+                  ◀ Prev
+                </button>
+            
+                <span>Page {{ searchPage + 1 }} of {{ searchTotalPages }}</span>
+            
+                <button (click)="nextSearchPage()" [disabled]="searchPage === searchTotalPages - 1">
+                  Next ▶
+                </button>
+
+                <button class="download-result-btn" (click)="downloadFullPagePDF()">
+                  ⬇ Download Result
+                </button>
+            
+              </div>
+            </div>
+          </ng-container>
+          
+
+          <!-- OVERALL (UPDATED) -->
+          <ng-container *ngIf="activeTab === 'overall'">
+            <div *ngFor="let r of overallResults" class="result-row overall-table">
+
+              <div class="col">
+                <div class="status-circle" [class.pass]="r.status === 'PASS'" [class.fail]="r.status === 'FAIL'">
+                  {{ r.status }}
+                </div>
+              </div>
+
+              <div class="col">
+                <div class="percent-circle" [class.pass]="r.status === 'PASS'" [class.fail]="r.status === 'FAIL'">
+                  {{ r.status === 'PASS' ? r.resultPercentage : 0 }}%
+                </div>
+              </div>
+
+              <!-- ✅ USER COLUMN -->
+              <div class="col">
+                {{ r.userName }}
+              </div>
+
+              <div class="col">{{ r.startTime | date:'MMM d, yyyy' }}</div>
+              <div class="col">{{ r.adminName }}</div>
+              <div class="col action" (click)="openDetails(r.id); $event.stopPropagation()">
+                View Details →
+              </div>
+
+            </div>
+          </ng-container>
+
+        </div>
+
+        <div class="pagination-wrapper" *ngIf="activeTab === 'overall' && totalPages > 1">
+          <div class="pagination">
+            <button (click)="prevPage()" [disabled]="overallPage === 0">
+              ◀ Prev
+            </button>
+        
+            <span>Page {{ overallPage + 1 }} of {{ totalPages }}</span>
+        
+            <button (click)="nextPage()" [disabled]="overallPage === totalPages - 1">
+              Next ▶
+            </button>
+          </div>
+        
+          <button class="download-result-btn" (click)="downloadFullPagePDF()">
+            ⬇ Download Result
+          </button>
+        </div>
+      </div>
+
+    </div>

@@ -1,0 +1,84 @@
+/* Center the entire content */
+.landing-container {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    /* full screen height */
+    background: linear-gradient(145deg, #4A90E2, #14274E);
+    color: #FFF;
+    text-align: center;
+    font-family: 'Poppins', sans-serif;
+    padding: 20px;
+}
+
+/* Heading style */
+.landing-container h1 {
+    font-size: 2.8rem;
+    font-weight: 700;
+    margin-bottom: 50px;
+    text-shadow: 2px 3px 5px rgba(0, 0, 0, 0.5);
+}
+
+/* Buttons container */
+.button-group {
+    display: flex;
+    flex-direction: column;
+    gap: 25px;
+    width: 280px;
+}
+
+/* Common button styles */
+.nav-btn {
+    background-color: #ffffff;
+    color: #1E3C72;
+    border: none;
+    padding: 16px 0;
+    border-radius: 14px;
+    font-size: 1.15rem;
+    font-weight: 700;
+    cursor: pointer;
+    box-shadow: 0 6px 15px rgba(30, 60, 114, 0.3);
+    transition: all 0.35s ease;
+    letter-spacing: 1px;
+    user-select: none;
+}
+
+.nav-btn:hover {
+    transform: scale(1.07);
+    box-shadow: 0 10px 20px rgba(30, 60, 114, 0.45);
+    filter: brightness(1.15);
+}
+
+/* Secondary button variant */
+.nav-btn.secondary {
+    background-color: #F5A623;
+    /* bold orange */
+    color: #14274E;
+    box-shadow: 0 6px 15px rgba(245, 166, 35, 0.6);
+}
+
+.nav-btn.secondary:hover {
+    background-color: #ffa726;
+    box-shadow: 0 10px 24px rgba(245, 166, 35, 0.9);
+    filter: brightness(1.1);
+    transform: scale(1.1);
+}
+
+/* Optional: add a subtle focus effect */
+.nav-btn:focus {
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(245, 166, 35, 0.7);
+}
+
+/* Responsive tweaks */
+@media (max-width: 400px) {
+    .landing-container h1 {
+        font-size: 2rem;
+    }
+
+    .button-group {
+        width: 100%;
+    }
+}

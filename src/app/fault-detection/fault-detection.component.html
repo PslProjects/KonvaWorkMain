@@ -1,0 +1,167 @@
+<div class="page-wrapper">
+  <div class="fault-container">
+
+    <!-- Top Header -->
+    <div class="header-row">
+      <h2>Admin Fault Detection</h2>
+    </div>
+    <!-- ============================= -->
+    <!-- User Selection -->
+    <!-- ============================= -->
+    <div class="section user-section">
+      <label>Select Users <span class="required">*</span></label>
+
+      <div class="custom-dropdown" (click)="toggleDropdown()">
+        <span *ngIf="!selectedUsers.length">
+          Total Users ({{ availableUsers.length }})
+        </span>
+        <span class="chip" *ngFor="let user of selectedUsers" (click)="removeUser(user); $event.stopPropagation()">
+          {{ user }} ✕
+        </span>
+        <span class="arrow">▼</span>
+      </div>
+
+      <div class="dropdown-panel" *ngIf="dropdownOpen">
+        <input type="text" class="search-input" placeholder="Search user..." [(ngModel)]="searchText" />
+        <div class="user-list">
+          <div class="user-item" *ngFor="let user of filteredUsers" [class.selected]="selectedUsers.includes(user)"
+            (click)="selectUser(user)">
+            {{ user }}
+          </div>
+        </div>
+        <p class="no-users" *ngIf="!filteredUsers.length">
+          No users found
+        </p>
+      </div>
+    </div>
+    <!-- ============================= -->
+    <!-- Circuit + Line + Search (One Row) -->
+    <!-- ============================= -->
+    <div class="section line-row">
+
+      <!-- Circuit -->
+      <div class="field-group">
+        <label for="circuit">Select Circuit <span class="required">*</span></label>
+        <select [(ngModel)]="selectedCircuit" (change)="onCircuitSelect()" id="circuit">
+          <option value="" disabled selected>Select Circuit...</option>
+          <option *ngFor="let c of circuits" [value]="c.name">
+            {{ c.name || '[No name]' }}
+          </option>
+        </select>
+      </div>
+
+      <!-- Select Line -->
+      <div class="field-group">
+        <label for="line">Select Line <span class="required">*</span></label>
+        <select [(ngModel)]="selectedLine" (change)="onLineSelect()" id="line" [disabled]="!selectedCircuit">
+          <option value="" disabled selected>Select Line...</option>
+          <option *ngFor="let line of lines" [value]="line.value">
+            {{ line.label }}
+          </option>
+        </select>
+      </div>
+    </div>
+
+    <!-- ============================= -->
+    <!-- Video Controls -->
+    <!-- ============================= -->
+    <div class="video-controls-section">
+      <button class="btn video-toggle-btn" *ngIf="!showVideo && selectedLine" (click)="toggleVideo()">
+        🎥 Show Procedure
+      </button>
+
+      <div class="video-player-wrapper" *ngIf="showVideo">
+        <div class="video-header">
+          <!-- <span>Playing</span> -->
+          <button class="btn video-hide-btn" (click)="hideVideo()">✕ Hide Video</button>
+        </div>
+        <div class="video-container">
+          <video [src]="videoSrc" [poster]="posterSrc" controls width="100%" height="240">
+            Video not supported
+          </video>
+        </div>
+
+      </div>
+    </div>
+
+
+
+    <!-- ============================= -->
+    <!-- Action Buttons (Horizontal Center) -->
+    <!-- ============================= -->
+    <div class="section action-buttons-row">
+      <button class="btn primary" (click)="requestFaultSession()"
+        [class.disabled]="isRequesting || !selectedUsers.length || !selectedCircuit || !selectedLine">
+        {{ isRequesting ? 'Requesting...' : 'Send Fault Request to Selected Users' }}
+      </button>
+
+      <button class="btn activate" (click)="activateFaultForAll()"
+        [class.disabled]="isActivating || hasAnyActiveSession() || !selectedLine">
+        Activate Fault For Selected Users
+      </button>
+
+      <!-- Admin Result Search -->
+      <div class="field-group search-btn-group">
+        <button type="button" class="btn admin-search-btn" routerLink="/admin-result-search">
+          🔍 Admin Result Search
+        </button>
+      </div>
+    </div>
+
+    <!-- ============================= -->
+    <!-- Active Sessions -->
+    <!-- ============================= -->
+    <div class="section" *ngIf="activeSessions.length">
+      <h3>📋 Session Status Requested / Pending</h3>
+      <div class="status-info">
+        <span class="status-count">{{ activeSessions.length }} active session{{ activeSessions.length !== 1 ? 's' : ''
+          }}</span>
+      </div>
+
+      <table class="session-table">
+        <thead>
+          <tr>
+            <th>User </th>
+            <th>Status</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let s of activeSessions; trackBy: trackBySessionId">
+            <td>{{ s.userId }}</td>
+            <td>
+              <span class="status-badge" [class]="s.state.toLowerCase()">
+                {{ s.state }}
+              </span>
+            </td>
+            <!-- <td>{{ s.line || 'N/A' }}</td> -->
+            <td class="session-actions">
+              <button class="btn activate small" (click)="activateFault(s.sessionId)" [disabled]="
+                  s.state !== 'ACCEPTED' ||
+                  !selectedLine ||
+                  isActivating ||
+                  hasActiveSessionForUser(s.userId)
+                ">
+                {{ s.state === 'ACTIVE' ? 'Activated' : 'Activate' }}
+              </button>
+
+              <button class="btn secondary small" *ngIf="s.state === 'RESOLVED'"
+                (click)="viewResultBySession(s.sessionId)">
+                📊 Result
+              </button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- ============================= -->
+    <!-- Navigation -->
+    <!-- ============================= -->
+    <div class="section">
+      <button class="btn secondary full-width" (click)="goToMainPage()">
+        ← Home Page
+      </button>
+    </div>
+  </div>
+</div>

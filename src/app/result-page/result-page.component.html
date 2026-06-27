@@ -1,0 +1,88 @@
+<div class="main-container">
+  <!-- NORMAL PAGE: Percentage + PIN (Before verification) -->
+  <div *ngIf="!pinVerified" class="normal-page">
+    <!-- TOP: Percentage Result -->
+  <div class="percentage-section glass-card">
+    <!-- PASS view (circle) -->
+    <ng-container *ngIf="isPass; else failBlock">
+      <div class="percentage-circle" [style.--percentage]="percentage">
+        <span class="percentage-value">{{ percentage }}%</span>
+      </div>
+      <div class="percentage-text">{{ percentageMessage }}</div>
+      <div class="line-info">FCB Tripped: {{ faultCounter }} time</div>
+    </ng-container>
+  
+    <!-- FAIL view -->
+    <ng-template #failBlock>
+      <div class="percentage-text">
+        ❌ {{ failReason }}
+      </div>
+      <div class="line-info">
+        FCB Tripped: {{ faultCounter }} time |
+        Time taken: {{ timeTakenMinutes | number:'1.1-1' }} min
+      </div>
+    </ng-template>
+  </div>
+
+
+    <!-- BOTTOM: PIN Section -->
+    <div class="pin-section">
+      <div class="pin-box">
+        <div class="pin-instruction">Enter PIN to watch the other way</div>
+        <form (submit)="verifyPin()">
+          <input type="password" [(ngModel)]="enteredPin" name="pin" maxlength="6" placeholder="Enter PIN" required />
+          <button type="submit">Verify PIN</button>
+        </form>
+        <button class="back-button" (click)="goBack()">← Try Another Fault</button>
+
+        <div *ngIf="pinError" class="invalid-message">Invalid PIN</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- VERIFIED PAGE: NEW Layout (Left: Sequence, Right: Video) -->
+  <div *ngIf="pinVerified" class="verified-page">
+    <!-- LEFT: Readable Sequence -->
+    <div class="sequence-panel">
+      <div class="sequence-header">
+        <h2> Your Fault Resolution Sequence</h2>
+        <!-- <div class="line-badge">Line: {{ line || 'LG' }}</div> -->
+      </div>
+
+      <div class="readable-sequence">
+        <div *ngIf="readableSequence.length === 0" class="no-sequence">
+          Loading sequence...
+        </div>
+        <ul *ngIf="readableSequence.length > 0">
+          <li *ngFor="let step of readableSequence; let i = index" class="sequence-step">
+            <span class="step-number">{{ i + 1 }}.</span>
+            <span class="step-text">{{ step }}</span>
+          </li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- RIGHT: Demo Video -->
+    <div class="video-panel">
+      <div class="video-header">
+        <h2>🎥 Correct procedure</h2>
+        <!-- <p>Watch the correct procedure</p> -->
+      </div>
+
+      <!-- Replace with your actual video URL -->
+      <div class="video-container" *ngIf="videoSrc">
+        <video [src]="videoSrc" [poster]="posterSrc" controls autoplay muted loop playsinline>
+          Your browser does not support the video tag.
+        </video>
+      </div>
+
+
+      <div class="video-info">
+        <!-- <div class="success-message">
+          ✅ Fault resolved successfully!
+        </div> -->
+        <button class="back-button" (click)="goBack()">← Try Another Fault</button>
+      </div>
+    </div>
+  </div>
+</div>

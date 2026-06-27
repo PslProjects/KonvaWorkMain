@@ -1,0 +1,33 @@
+<div class="login-wrapper">
+  <div class="login-box">
+    <h1 class="title">Add New Admin</h1>
+
+    <form (ngSubmit)="addAdmin()" class="login-form">
+
+      <input
+        type="text"
+        placeholder="Admin Username"
+        [(ngModel)]="username"
+        name="username"
+        class="input-field"
+        required
+      />
+
+      <input
+        type="password"
+        placeholder="Admin Password"
+        [(ngModel)]="password"
+        name="password"
+        class="input-field"
+        required
+      />
+
+
+      <button type="submit" class="login-btn">Create Admin</button>
+    </form>
+
+    <button routerLink="/admin-login" class="add-btn">
+      Back to Admin Login
+    </button>
+  </div>
+</div>

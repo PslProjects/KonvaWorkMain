@@ -1,0 +1,23 @@
+<div class="verify-container">
+  <h2>🔐 Master Verification</h2>
+  <p>Enter admin credentials + master PIN</p>
+
+  <input type="text"
+         [(ngModel)]="username"
+         placeholder="Admin Username" />
+
+  <input type="password"
+         [(ngModel)]="password"
+         placeholder="Admin Password" />
+
+  <input type="password"
+         [(ngModel)]="masterPin"
+         placeholder="Master PIN"
+         maxlength="6" />
+
+  <button (click)="verify()">Verify</button>
+
+  <div class="error" *ngIf="errorMessage">
+    {{ errorMessage }}
+  </div>
+</div>

@@ -1,0 +1,53 @@
+<div class="add-user-box">
+  <h2>Add New User</h2>
+
+  <form #userForm="ngForm" (ngSubmit)="addUser(userForm)">
+
+    <!-- Username -->
+    <input type="text" placeholder="Enter Username" [(ngModel)]="username" name="username" required
+      #usernameRef="ngModel">
+
+    <div class="error" *ngIf="usernameRef.invalid && (usernameRef.touched || submitted)">
+      Username is required
+    </div>
+
+    <!-- Password -->
+    <input type="password" placeholder="Enter Password" [(ngModel)]="password" name="password" required
+      #passwordRef="ngModel">
+
+    <div class="error" *ngIf="passwordRef.invalid && (passwordRef.touched || submitted)">
+      Password is required
+    </div>
+
+    <!-- Designation -->
+    <input type="text" placeholder="Enter Designation" [(ngModel)]="designation" name="designation" required
+      #designationRef="ngModel">
+
+    <div class="error" *ngIf="designationRef.invalid && (designationRef.touched || submitted)">
+      Designation is required
+    </div>
+
+    <!-- Photo Upload -->
+    <div class="upload-box" (click)="photoUpload.click()">
+      <img *ngIf="photoPreview" [src]="photoPreview" class="photo-preview" alt="Preview">
+
+      <div *ngIf="!photoPreview" class="upload-placeholder">
+        <span class="upload-icon">📷</span>
+        <span>Click to Upload Photo</span>
+      </div>
+
+      <input #photoUpload type="file" accept="image/png, image/jpeg" (change)="onPhotoSelected($event)"
+        style="display:none">
+    </div>
+
+    <!-- ✅ Button ALWAYS enabled -->
+    <button type="submit">
+      Create User
+    </button>
+
+    <button class="back-btn" type="button" (click)="backToLogin()">
+      Back to Login
+    </button>
+
+  </form>
+</div>

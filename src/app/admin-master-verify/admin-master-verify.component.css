@@ -1,0 +1,92 @@
+/* Full page center layout */
+:host {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+  background: linear-gradient(135deg, #dadcdc, #e2e7e9, #e0e5e7);
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+/* Main card */
+.verify-container {
+  width: 380px;
+  padding: 35px 30px;
+  background: #ffffff;
+  border-radius: 14px;
+  box-shadow: 0 20px 45px rgba(0, 0, 0, 0.28);
+  text-align: center;
+}
+
+/* Lock Icon (optional emoji will still look good) */
+.verify-container h2 {
+  margin-bottom: 5px;
+  font-size: 22px;
+  color: #222;
+}
+
+/* Subtitle */
+.verify-container p {
+  margin-bottom: 25px;
+  font-size: 14px;
+  color: #666;
+}
+
+/* Inputs */
+.verify-container input {
+  width: 90%;
+  padding: 12px 14px;
+  margin-bottom: 14px;
+  font-size: 14px;
+  border: 1px solid #dcdcdc;
+  border-radius: 8px;
+  outline: none;
+  transition: border 0.2s ease, box-shadow 0.2s ease;
+}
+
+/* Input focus */
+.verify-container input:focus {
+  border-color: #00b4d8;
+  box-shadow: 0 0 0 2px rgba(0, 180, 216, 0.15);
+}
+
+/* Placeholder */
+.verify-container input::placeholder {
+  color: #aaa;
+}
+
+/* Verify Button */
+.verify-container button {
+  width: 100%;
+  padding: 12px;
+  margin-top: 6px;
+  font-size: 15px;
+  font-weight: bold;
+  border: none;
+  border-radius: 8px;
+  background: linear-gradient(135deg, #00b4d8, #0077b6);
+  color: #fff;
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+/* Button hover */
+.verify-container button:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 18px rgba(0, 119, 182, 0.35);
+}
+
+/* Error message */
+.error {
+  margin-top: 14px;
+  font-size: 13px;
+  color: #d32f2f;
+}
+
+/* Mobile Responsive */
+@media (max-width: 420px) {
+  .verify-container {
+    width: 92%;
+    padding: 28px 22px;
+  }
+}

@@ -1,0 +1,156 @@
+/* Center the entire content */
+.landing-container {
+    position: relative;
+
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+
+    min-height: 100vh;
+    width: 100%;
+
+    /* 🖼️ FINAL BACKGROUND (merged) */
+    background-image: url('/assets/demo-videos/train.png');
+    background-repeat: no-repeat;
+    background-position: center center;
+    background-size: contain;
+
+    /* 🔥 fallback background */
+    background-color: #0f172a;
+    background-attachment: scroll;
+
+    color: #FFF;
+    text-align: center;
+    font-family: 'Poppins', sans-serif;
+    padding: 20px;
+}
+
+/* 🌑 Dark overlay for readability */
+.landing-container::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(rgba(2, 2, 2, 0.4),
+            rgba(0, 0, 0, 0.4));
+    z-index: 1;
+}
+
+/* Bring content above overlay */
+.landing-container>* {
+    position: relative;
+    z-index: 2;
+    top: 35px;
+}
+
+/* Heading style */
+.landing-container h1 {
+    font-size: 2.8rem;
+    font-weight: 700;
+    margin-bottom: 50px;
+    text-shadow: 2px 3px 5px rgba(0, 0, 0, 0.5);
+    color: white;
+}
+
+/* Buttons container */
+.button-group {
+    display: flex;
+    flex-direction: column;
+    gap: 25px;
+    width: 270px;
+}
+
+/* Common button styles */
+.nav-btn {
+    background-color: #ffffff;
+    color: #1E3C72;
+    border: none;
+    padding: 16px 0;
+    border-radius: 14px;
+    font-size: 1.15rem;
+    font-weight: 700;
+    cursor: pointer;
+    box-shadow: 0 6px 15px rgba(30, 60, 114, 0.3);
+    transition: all 0.35s ease;
+    letter-spacing: 1px;
+    user-select: none;
+}
+
+.nav-btn:hover {
+    transform: scale(1.07);
+    box-shadow: 0 10px 20px rgba(30, 60, 114, 0.45);
+    filter: brightness(1.15);
+}
+
+/* Secondary button variant */
+.nav-btn.secondary {
+    background-color: #F5A623;
+    color: #14274E;
+    box-shadow: 0 6px 15px rgba(245, 166, 35, 0.6);
+}
+
+.nav-btn.secondary:hover {
+    background-color: #ffa726;
+    box-shadow: 0 10px 24px rgba(245, 166, 35, 0.9);
+    filter: brightness(1.1);
+    transform: scale(1.1);
+}
+
+/* Focus effect */
+.nav-btn:focus {
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(245, 166, 35, 0.7);
+}
+
+/* Responsive */
+@media (max-width: 400px) {
+    .landing-container h1 {
+        font-size: 2rem;
+    }
+
+    .button-group {
+        width: 100%;
+    }
+}
+
+/* Dropdown */
+.dropdown {
+  position: relative;
+  display: inline-block;
+  width: 100%;
+}
+.dropdown > .nav-btn {
+  width: 100%;
+}
+/* Dropdown content */
+.dropdown-content {
+  display: none;
+  position: absolute;
+  top: 100%;
+  left: 0;
+  min-width: 160px;
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0px 5px 15px rgba(0,0,0,0.3);
+  overflow: hidden;
+  z-index: 1000;
+}
+
+/* Dropdown buttons */
+.dropdown-content .nav-btn {
+  width: 100%;
+  border-radius: 0;
+  text-align: left;
+  padding: 12px;
+}
+
+/* Hover effect */
+.dropdown-content .nav-btn:hover {
+  background: #f2f2f2;
+}
+
+/* Show dropdown */
+.dropdown:hover .dropdown-content {
+  display: block;
+}
+

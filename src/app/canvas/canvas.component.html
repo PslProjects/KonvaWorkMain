@@ -1,0 +1,314 @@
+<div class="app-wrapper">
+  <!-- TOP HEADER - Welcome + Select + Home -->
+  <div class="top-header">
+    <div class="header-left">
+      👋 Welcome <span class="username">{{ username || 'User' }}</span>
+    </div>
+  <div class="header-center">
+    <div *ngIf="!isFaultDetectionMode; else faultText" class="centered-wrapper">
+      <div class="select-container">
+        <div class="select-label" style="color:#307bf4; font-weight: bold;" >
+          Start Participation
+        </div>
+        <select [(ngModel)]="selectedCircuitId" (change)="onCircuitSelect()" class="header-select"
+          [class.placeholder-active]="!selectedCircuitId"  >
+                  <option [ngValue]="null" disabled>Select Board</option>
+
+          <!-- <option value="" disabled>Select Circuit</option> -->
+          <option *ngFor="let c of circuits" [value]="c.id">
+            {{ c.name || '[No name]' }}
+          </option>
+        </select>
+      </div>
+    </div>
+    <ng-template #faultText>
+      <div class="fault-activated-text">
+        ⚠️ Fault is Activated
+      </div>
+    </ng-template>
+  </div>
+
+    <div class="header-right">
+      <!-- header-right div mein ye button add karo -->
+      <!-- <button class="logic-mode-btn" (click)="toggleLogicAddMode()" [class.active]="isLogicAddMode">
+        🛠️ {{isLogicAddMode ? 'Logic ON' : 'Logic'}}
+      </button> -->
+
+      <!-- ===== ADDED: DB Rule builder button ===== -->
+      <!-- <button class="header-home-btn" (click)="openRuleBuilder()">
+        ➕ Rule add karo
+      </button> -->
+
+      <button class="header-home-btn" (click)="goToMainPage()">
+        🏠 Home
+      </button>
+    </div>
+  </div>
+  <!-- ✅ WELCOME PAGE (shown before any circuit is selected) -->
+  <div class="welcome-page" *ngIf="showWelcomePage && !isFaultDetectionMode">
+    <div class="instruction-container">
+
+      <!-- MAIN HEADING -->
+      <h1 class="main-heading">Traction Power Control Simulator</h1>
+
+      <!-- SUB HEADING -->
+      <h2 class="sub-heading">User Manual</h2>
+
+      <!-- INSTRUCTION POINTS -->
+      <div class="instruction-box">
+        <p>This system is designed to ensure the safety of line personnel by protecting them from electrical current
+          during maintenance operations.</p>
+
+        <p>This system helps in preventing faults in electrical lines and improves operational reliability.</p>
+
+        <p>Practicing on this system enables users to detect faults more quickly and efficiently in real scenarios.</p>
+
+        <p>If no fault is assigned by the administrator, users can independently practice on all available circuits.</p>
+      </div>
+
+      <!-- START NOTE -->
+      <!-- <div class="start-note">
+        To start practicing, please select any circuit from the dropdown provided above.
+      </div> -->
+
+    </div>
+  </div>
+
+
+  <!-- MAIN CONTENT -->
+  <div class="main-content">
+    <!-- MINI LOGIC EDITOR - Right side floating -->
+  <!-- DRAGGABLE LOGIC EDITOR -->
+  <div class="mini-logic-editor" *ngIf="showLogicEditor" [style.left.px]="logicEditorX" [style.top.px]="logicEditorY"
+    (mousemove)="dragEditor($event)" (mouseup)="stopDragEditor()">
+    <div class="drag-handle" (mousedown)="startDragEditor($event)">⋮⋮⋮</div>
+
+    <div class="header">
+      <h4>🛠️ Logic Builder</h4>
+      <button class="close-btn" (click)="toggleLogicAddMode()">✕</button>
+    </div>
+
+    <!-- RS SECTION (operators + chips) -->
+    <div class="section">
+      <div class="section-header">
+        <span>🔴 RS Signals</span>
+        <div class="op-buttons">
+          <button (click)="addOperatorToRS('&')" title="AND">&</button>
+          <button (click)="addOperatorToRS('|')" title="OR">|</button>
+          <button (click)="addOperatorToRS('(')">(</button>
+          <button (click)="addOperatorToRS(')')">)</button>
+        </div>
+      </div>
+      <div class="chips-container">
+        <span *ngFor="let chip of rsChips; let i=index" class="chip rs-chip" (click)="removeRSChip(i)">
+          {{chip}} <span class="chip-delete">✕</span>
+        </span>
+      </div>
+      <div class="when-preview">{{currentRuleWhen || 'Tap RS...'}}</div>
+    </div>
+
+    <!-- LG SECTION -->
+    <div class="section">
+      <div class="section-header">
+        <span>🟢 LG Lines</span>
+      </div>
+      <div class="chips-container">
+        <span *ngFor="let chip of lgChips; let i=index" class="chip lg-chip" (click)="removeLGChip(i)">
+          {{chip}} <span class="chip-delete">✕</span>
+        </span>
+      </div>
+    </div>
+
+    <!-- CONTROLS (Clear button hataya) -->
+    <div class="controls">
+      <button (click)="addNewRule()" class="btn-add">+ New Rule</button>
+    </div>
+
+    <!-- RULES LIST -->
+    <div class="rules-list">
+      <div *ngFor="let rule of logicRules; let i=index" class="rule-item">
+        {{i+1}}. {{rule.when.substring(0,25)}}...
+      </div>
+    </div>
+
+    <button class="btn-save" (click)="downloadLogicFile()">
+      💾 Save .ts
+    </button>
+  </div>
+
+
+    <!-- LOADER OVERLAY -->
+    <div class="main-content" [style.display]="(!showWelcomePage || isFaultDetectionMode) ? 'block' : 'none'">
+    <!-- <div class="main-content"> -->
+
+      <!-- LOADER OVERLAY -->
+      <div class="loader-overlay" *ngIf="isCanvasLoading">
+        <div class="loader-wrapper">
+          <div class="loader"></div>
+          <span class="loader-letter">L</span>
+          <span class="loader-letter">O</span>
+          <span class="loader-letter">A</span>
+          <span class="loader-letter">D</span>
+          <span class="loader-letter">I</span>
+          <span class="loader-letter">N</span>
+          <span class="loader-letter">G</span>
+          <span class="loader-letter">.</span>
+          <span class="loader-letter">.</span>
+          <span class="loader-letter">.</span>
+        </div>
+      </div>
+
+
+    <!-- CANVAS CONTAINER -->
+    <div class="canvas-container">
+      <canvas #canvas></canvas>
+    </div>
+
+    <!-- BOTTOM VERIFY BUTTON - Fault mode only -->
+    <div class="bottom-panel" *ngIf="isFaultDetectionMode">
+      <button [disabled]="!faultResolved" class="verify-btn" (click)="verifyFaultResolution()">
+        ✅ Verify Fault Resolution
+      </button>
+    </div>
+  </div>
+
+  <!-- TEXT INPUT POPUP -->
+  <div *ngIf="addTextPopupVisible" class="popup-overlay">
+    <div class="popup-content">
+      <h3>Add Text</h3>
+      <input [(ngModel)]="inputTextValue" placeholder="Enter text" class="popup-input" />
+      <div class="popup-actions">
+        <button class="popup-btn add" (click)="confirmAddText()">Add</button>
+        <button class="popup-btn cancel" (click)="addTextPopupVisible = false">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ICON INPUT POPUP -->
+  <div *ngIf="showIconInputPopup" class="popup-overlay">
+    <div class="popup-content">
+      <h2>Add {{ iconToAddType | titlecase }} Details</h2>
+      <div class="form-group">
+        <label>ID</label>
+        <input [(ngModel)]="inputIconId" placeholder="Leave blank for auto ID" class="popup-input" />
+      </div>
+      <div class="form-group">
+        <label>Label</label>
+        <input [(ngModel)]="inputIconLabel" placeholder="Enter label (optional)" class="popup-input" />
+      </div>
+      <div class="popup-actions">
+        <button class="popup-btn add" (click)="confirmAddIcon()">Add Icon</button>
+        <button class="popup-btn cancel" (click)="cancelAddIcon()">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- CIRCUIT NAME POPUP -->
+  <div *ngIf="circuitNamePopupVisible" class="popup-overlay">
+    <div class="popup-content">
+      <h3>Enter Circuit Name</h3>
+      <input [(ngModel)]="inputCircuitName" placeholder="Circuit name" class="popup-input" />
+      <div class="popup-actions">
+        <button class="popup-btn add" (click)="confirmSaveCircuit()">OK</button>
+        <button class="popup-btn cancel" (click)="circuitNamePopupVisible = false">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== ADDED: RULE BUILDER POPUP (DB-based) ===== -->
+  <!-- <div *ngIf="showRuleBuilder" class="popup-overlay">
+    <div class="popup-content">
+      <h3>Naya Rule</h3>
+      <div class="form-group">
+        <label>Kaunsi line(s) red hongi? (comma se)</label>
+        <input [(ngModel)]="ruleLines" placeholder="LG1, LG2" class="popup-input" />
+      </div>
+      <div class="form-group">
+        <label>Kab? (condition)</label>
+        <input [(ngModel)]="ruleWhen" placeholder="RS0 & RS1" class="popup-input" />
+      </div>
+      <div class="form-group">
+        <label>Priority</label>
+        <input type="number" [(ngModel)]="rulePriority" class="popup-input" />
+      </div>
+      <div class="popup-actions">
+        <button class="popup-btn add" (click)="addRule()">Save rule</button>
+        <button class="popup-btn cancel" (click)="showRuleBuilder = false">Cancel</button>
+      </div>
+    </div>
+  </div> -->
+  <!-- ===== END ADDED ===== -->
+
+  <!-- SWITCH POPUP -->
+  <div *ngIf="popupVisible && popupType === 'switch'" class="popup-overlay">
+    <div class="popup-content">
+      <h3>{{popupLabel}}</h3>
+      <div class="btn-row">
+        <button class="btn-40 popup-btn add" (click)="onSwitchJoinPopupConfirm()">Join</button>
+        <button class="btn-40 popup-btn cancel" (click)="closePopup()">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- LINE CLOSE POPUP -->
+  <div *ngIf="popupVisible && popupType === 'lineClose'" class="popup-overlay">
+    <div class="popup-content">
+      <h3>{{popupLabel}}</h3>
+      <div class="btn-row">
+        <button class="btn-40 popup-btn add" (click)="onLineCloseConfirm()">Break</button>
+        <button class="btn-40 popup-btn cancel" (click)="closePopup()">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- RED SIGNAL POPUP -->
+  <div *ngIf="popupVisible && popupType === 'redSignal'" class="popup-overlay">
+    <div class="popup-content red-signal-popup" [style.left.px]="popupX" [style.top.px]="popupY">
+      <h3>{{ popupTitle }}</h3>
+
+      <div class="btn-row">
+        <button class="btn-40 popup-btn add" *ngIf="onlyShowOpenOption" (click)="onRedSignalState('open')">
+          Close
+        </button>
+
+        <button class="btn-40 popup-btn add" *ngIf="!onlyShowOpenOption" (click)="onRedSignalState('close')">
+          Open
+        </button>
+
+        <button class="btn-40 popup-btn cancel" (click)="closePopup()">
+          Cancel
+        </button>
+      </div>
+    </div>
+  </div>
+
+
+
+  <!-- ID POPUP -->
+  <div *ngIf="idPopupVisible" class="popup-overlay">
+    <div class="popup-content">
+      <h3>{{popupLabel}}</h3>
+      <div class="btn-row">
+        <button class="btn-40 popup-btn add" (click)="confirmIDPopup()">Confirm</button>
+        <button class="btn-40 popup-btn cancel" (click)="closeIdPopup()">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- FAULT TIMER -->
+  <div class="fault-timer" *ngIf="isFaultDetectionMode">
+    ⏱ {{ formattedTime }}
+  </div>
+
+  <!-- FAULT SESSION REQUEST POPUP -->
+  <div class="overlay" *ngIf="showFaultRequestPopup">
+    <div class="popup">
+      <h3>Fault Session Request</h3>
+      <p>Admin <b>{{ pendingAdminId }}</b> wants to start a fault session.</p>
+      <div class="popup-actions">
+        <button class="btn accept" (click)="acceptFaultRequest()">Accept</button>
+        <button class="btn reject" (click)="rejectFaultRequest()">Reject</button>
+      </div>
+    </div>
+  </div>
+</div>

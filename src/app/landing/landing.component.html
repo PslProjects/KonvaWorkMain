@@ -1,0 +1,34 @@
+<div class="landing-container">
+
+    <h1>Welcome To TPC Training Simulator</h1>
+
+    <div class="button-group">
+
+        <!-- User Login Dropdown -->
+        <div class="dropdown">
+
+            <button type="button" class="nav-btn">
+                User Login
+            </button>
+
+            <div class="dropdown-content">
+                <!-- SAME as existing -->
+                <button routerLink="/login" [queryParams]="{ type: 'circuit' }" class="nav-btn">
+                    Segeregate Circuit
+                </button>
+
+                <button routerLink="/login" [queryParams]="{ type: 'tpc' }" class="nav-btn">
+                    TPC Normal Working
+                </button>
+            </div>
+
+        </div>
+
+        <!-- Admin Button -->
+        <button routerLink="/admin-login" class="nav-btn secondary">
+            Admin Login
+        </button>
+
+    </div>
+
+</div>

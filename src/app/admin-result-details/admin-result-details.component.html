@@ -1,0 +1,103 @@
+<div class="details-wrapper" id="pdf-content">
+  <!-- HEADER WITH SCORE -->
+  <div class="header-card">
+    <!-- PASS: score circle -->
+    <ng-container *ngIf="result?.status === 'PASS'; else failHeader">
+      <div class="score-circle" [style.--score]="result?.resultPercentage">
+        <span class="score-value">{{ result?.resultPercentage }}%</span>
+      </div>
+      <div class="header-info">
+        <h1 class="main-title">Result Details</h1>
+        <div class="status-badge" [class.pass]="result?.status === 'PASS'" [class.fail]="result?.status === 'FAIL'">
+          {{ result?.status }}
+        </div>
+      </div>
+    </ng-container>
+
+    <!-- FAIL: no circle, polite message -->
+    <ng-template #failHeader>
+      <div class="header-info full-width">
+        <h1 class="main-title">Result Details</h1>
+        <div class="status-badge fail">
+          FAIL
+        </div>
+        <div class="fail-reason-text">
+          The fault resolution was not successful this time.
+          Please review the FCB operations and time taken for better accuracy in the next attempt.
+        </div>
+      </div>
+    </ng-template>
+  </div>
+
+
+  <!-- METRICS GRID -->
+  <div class="metrics-grid">
+    <div class="metric-card user-photo-card">
+      <div class="metric-icon">
+        <img *ngIf="result?.userPhoto; else defaultUserIcon" [src]="result.userPhoto" alt="User Photo"
+          class="user-avatar" />
+        <ng-template #defaultUserIcon>👤</ng-template>
+      </div>
+      <div class="metric-label">User</div>
+      <div class="metric-value">{{ result?.userName }}</div>
+      <div class="metric-designation" *ngIf="result?.userDesignation">
+        ({{ result.userDesignation }})
+      </div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-icon">👨‍💼</div>
+      <div class="metric-label">Admin</div>
+      <div class="metric-value">{{ result?.adminName }}</div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-icon">⚡</div>
+      <div class="metric-label">Fault Line</div>
+      <div class="metric-value">{{ faultLineLabel }}</div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-icon">🔌</div>
+      <div class="metric-label">FCB Tripped</div>
+      <div class="metric-value">{{ result?.fcbFlipCount }} times</div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-icon">⏱️</div>
+      <div class="metric-label">Time Taken</div>
+      <div class="metric-value">
+        {{ (result?.timeTakenMs / 1000) | number:'1.1-1' }}s
+        {{ result?.timeTakenMs % 1000 }}ms</div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-icon">📅</div>
+      <div class="metric-label">Date</div>
+      <div class="metric-value">{{ result?.startTime | date:'medium' }}</div>
+    </div>
+  </div>
+
+  <!-- SEQUENCE LIST -->
+  <div class="sequence-section">
+    <div class="sequence-header">
+      <h2 class="seq-title">User Sequence</h2>
+      <div class="seq-count">{{ readableUserSequence?.length || 0 }} steps
+
+      </div>
+    </div>
+    <div class="seq-list">
+      <div class="seq-item" *ngFor="let step of readableUserSequence; let i = index">
+        <div class="step-number">{{ i + 1 }}</div>
+        <div class="step-content">
+          <div class="step-text">[{{ $any(step).displayName || step }}] {{ $any(step).timestamp | date:'hh:mm:ss.SSS a' }}</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ACTION BUTTONS -->
+  <div class="action-bar no-print">
+    <button routerLink="/admin-result-search" class="action-btn secondary">
+      ← Back to Search
+    </button>
+    <button class="action-btn primary" (click)="downloadPDF()">
+      📄 Download PDF
+    </button>
+  </div>
+</div>
