@@ -566,7 +566,8 @@ const CIRCUIT_RULES: Record<string, CircuitRuleSet> = {
 
       {
         controlledSignal: 'RS56',
-        preconditions: [['RS53'],
+        preconditions: [
+        ['RS53'],
         ['RS54'],
         ['RS152'],
         ],
@@ -574,7 +575,8 @@ const CIRCUIT_RULES: Record<string, CircuitRuleSet> = {
       },
       {
         controlledSignal: 'RS57',
-        preconditions: [['RS55'],
+        preconditions: [
+        ['RS55'],
         ['RS66', 'RS65'],
         ['RS060'],
         ['RS64'],
@@ -651,7 +653,7 @@ const CIRCUIT_RULES: Record<string, CircuitRuleSet> = {
             ['RS40'],
             ['RS39']
           ],
-          reverse: { signal: '', conditions: [] }
+          reverse: { signal: '', conditions: []  }
         },
 
         LG40: {
