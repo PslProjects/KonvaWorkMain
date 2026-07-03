@@ -142,16 +142,16 @@ const CIRCUIT_RULES: Record<string, CircuitRuleSet> = {
 
     faultMode: {
       preconditions: {
-        LG8: {
-          controlledSignal: 'RS8',
-          preconditions: [
-            ['RS6', 'RS4', 'RS12', 'RS11'],
-            ['RS4', 'RS5', 'RS12', 'RS11'],
-            ['RS4', 'RS5', 'RS12', 'RS18'],
-            ['RS16', 'RS6', 'RS11']
-          ],
-          reverse: { signal: 'RS18', conditions: [['RS11']] }
-        },
+        // LG8: {
+        //   controlledSignal: 'RS8',
+        //   preconditions: [
+        //     ['RS6', 'RS4', 'RS12', 'RS11'],
+        //     ['RS4', 'RS5', 'RS12', 'RS11'],
+        //     ['RS4', 'RS5', 'RS12', 'RS18'],
+        //     ['RS16', 'RS6', 'RS11']
+        //   ],
+        //   reverse: { signal: 'RS18', conditions: [['RS11']] }
+        // },
 
         LG7: {
           controlledSignal: 'RS8',
@@ -1800,6 +1800,7 @@ export class CanvasComponent implements OnInit, OnDestroy {  // ✅ OnDestroy AD
   // Currently closed signals track करने के लिए set
   private closedSignals: Set<string> = new Set();
   boardRules: LineRule[] = []; 
+  activeCircuitRule: CircuitRuleSet | null = null;
 
 
   // हर line पर affect करने वाले signals का reverse map बनाना होगा
@@ -2137,8 +2138,11 @@ export class CanvasComponent implements OnInit, OnDestroy {  // ✅ OnDestroy AD
   }
   startTime: number | null = null;
   endTime: number | null = null;
+  // private getFaultControlledSignal(circuitName: string, faultLine: string): string | undefined {
+  //   return CIRCUIT_RULES?.[circuitName]?.faultMode?.preconditions?.[faultLine]?.controlledSignal;
+  // }
   private getFaultControlledSignal(circuitName: string, faultLine: string): string | undefined {
-    return CIRCUIT_RULES?.[circuitName]?.faultMode?.preconditions?.[faultLine]?.controlledSignal;
+  return this.activeCircuitRule?.faultMode?.preconditions?.[faultLine]?.controlledSignal;
   }
 
 
@@ -2794,8 +2798,8 @@ export class CanvasComponent implements OnInit, OnDestroy {  // ✅ OnDestroy AD
     const label = (this.popupIcon as any).customLabel || '';
     const isCloseType = (label === 'closeHorizontal' || label === 'closeVertical');
 
-    const circuitRule = CIRCUIT_RULES[this.selectedCircuitName];
-
+    // const circuitRule = CIRCUIT_RULES[this.selectedCircuitName];
+      const circuitRule = this.activeCircuitRule;
 
 
 
@@ -4252,16 +4256,41 @@ export class CanvasComponent implements OnInit, OnDestroy {  // ✅ OnDestroy AD
     return overlap;
   }
 
-  onCircuitSelect() {
-    if (this.selectedCircuitId == null) return;
+ onCircuitSelect() {
+  if (this.selectedCircuitId == null) return;
 
-    const selected = this.circuits.find(c => c.id === Number(this.selectedCircuitId));
-    if (selected) {
-      this.showWelcomePage = false;
-      this.loadCanvasFromJson(selected.canvasJson || selected.canvasData);
-      // this.loadRulesFromDb(); 
-    }
+  const selected = this.circuits.find(c => c.id === Number(this.selectedCircuitId));
+
+  if (selected) {
+
+    // 👇 DEBUG
+    console.log("====================================");
+    console.log("Selected Circuit :", selected.name);
+    console.log("Selected Circuit ID :", selected.id);
+
+    const jsonStr = selected.canvasJson || selected.canvasData;
+
+    console.log("JSON Length :", jsonStr?.length);
+
+    const data = JSON.parse(jsonStr);
+
+    console.log("Saved closedSignalsArray :", data.closedSignalsArray);
+
+    console.log(
+      "Red Signals in JSON :",
+      data.objects
+        .filter((o: any) => o.customType === "redSignal")
+        .map((o: any) => o.customId)
+    );
+
+    console.log("====================================");
+
+    this.showWelcomePage = false;
+    this.loadCanvasFromJson(jsonStr);
+
+    // this.loadRulesFromDb();
   }
+}
 
 
   async loadCanvasFromJson(json: string): Promise<void> {
@@ -4289,7 +4318,10 @@ export class CanvasComponent implements OnInit, OnDestroy {  // ✅ OnDestroy AD
       this.redSignalLineMap = data.redSignalLineMap || {};
       this.redSignalLineOverrideMap = data.redSignalLineOverrideMap || {};
       this.closedSignals = new Set<string>(data.closedSignalsArray || []);
+      console.log("Saved closedSignalsArray:", data.closedSignalsArray);
+      
       await this.fetchRulesForCurrentCircuit();
+      await this.fetchFaultRulesForCurrentCircuit();
 
       if (this.selectedCircuitName === 'HSR_Board') {
         this.closedSignals.add('RS18');  // HSR board
@@ -4325,6 +4357,15 @@ export class CanvasComponent implements OnInit, OnDestroy {  // ✅ OnDestroy AD
         this.closedSignals.add('RS048');
         this.closedSignals.add('RS049');
         this.closedSignals.add('RS044');
+      }
+      if (this.selectedCircuitName === 'NEW_BOARD') {
+        this.closedSignals.add('RS1');
+        this.closedSignals.add('RS3');
+        this.closedSignals.add('RS46');
+        this.closedSignals.add('RS47');
+        this.closedSignals.add('RS11');
+        this.closedSignals.add('RS68');
+
       }
 
       // 3) Enliven objects (Promise-safe for both callback + promise fabric variants)
@@ -4733,6 +4774,69 @@ private fetchRulesForCurrentCircuit(): Promise<void> {
   });
 }
 
+// ===== Change 2: DB rows ko CircuitRuleSet shape me convert karta hai =====
+private buildCircuitRuleSet(rows: any[]): CircuitRuleSet {
+  const set: CircuitRuleSet = {
+    normalMode: [],
+    faultMode: { preconditions: {}, resolutionMap: {} }
+  };
+
+  const safeParse = (s: any, fallback: any) => {
+    if (s === null || s === undefined || s === '') return fallback;
+    try { return JSON.parse(s); } catch { return fallback; }
+  };
+
+  // ---- NORMAL MODE ----
+  rows.filter(r => r.mode === 'normal')
+      .sort((a, b) => (a.priority ?? 0) - (b.priority ?? 0))
+      .forEach(r => {
+        const rule: NormalRule = {
+          controlledSignal: r.controlledSignal,
+          preconditions: safeParse(r.preconditions, [])
+        };
+        const rev = safeParse(r.reverseJson, null);
+        if (rev && rev.signal) rule.reverse = rev;
+        set.normalMode.push(rule);
+      });
+
+  // ---- FAULT MODE ----
+  rows.filter(r => r.mode === 'fault').forEach(r => {
+    const lg = r.ruleName;
+    if (!lg) return;
+
+    const pre = safeParse(r.preconditions, []);
+    if (r.controlledSignal && pre.length) {
+      const fr: FaultRule = { controlledSignal: r.controlledSignal, preconditions: pre };
+      const rev = safeParse(r.reverseJson, null);
+      if (rev && rev.signal) fr.reverse = rev;
+      set.faultMode.preconditions[lg] = fr;
+    }
+
+    const res = safeParse(r.resolution, null);
+    if (res && res.length) set.faultMode.resolutionMap[lg] = res;
+  });
+
+  return set;
+}
+
+// ===== Change 3: DB se fault rules le aata hai =====
+private fetchFaultRulesForCurrentCircuit(): Promise<void> {
+  return new Promise((resolve) => {
+    if (!this.selectedCircuitName) { this.activeCircuitRule = null; resolve(); return; }
+    this.circuitService.getFaultRulesByName(this.selectedCircuitName).subscribe({
+      next: (rows) => {
+        this.activeCircuitRule = this.buildCircuitRuleSet(rows || []);
+        console.log('✅ Fault rules loaded for', this.selectedCircuitName,
+          '| normal:', this.activeCircuitRule.normalMode.length,
+          '| faultLines:', Object.keys(this.activeCircuitRule.faultMode.preconditions).length);
+        resolve();
+      },
+      error: (e) => { console.error('❌ fault rules fetch fail', e); this.activeCircuitRule = null; resolve(); }
+    });
+  });
+}
+
+
 openRuleBuilder() {
   this.editingRuleIndex = null;
   this.ruleLines = ''; this.ruleWhen = ''; this.rulePriority = 1;
@@ -4786,4 +4890,5 @@ ddeleteRule(i: number) {
   this.boardRules.splice(i, 1);
   this.updateLineColors();
 }
+
 }

@@ -32,6 +32,7 @@ export function applyRulesToCanvas(
   closed: Set<string>,
   rules: LineRule[]
 ): void {
+    console.log("Closed Switches :", [...closed]);
   // 1) pehle saari colored lines ko unke original color par reset
   canvas.getObjects().forEach(o => {
     const t = (o as any).customType;
@@ -45,6 +46,7 @@ export function applyRulesToCanvas(
     .sort((a, b) => (a.priority || 0) - (b.priority || 0))
     .forEach(rule => {
       if (!evalCondition(rule.when, closed)) return;
+     
       rule.lines.forEach(lineId => {
         // sirf abhi loaded board ke objects me se dhoondhega -> namespace safe
         const line = canvas.getObjects().find(o => (o as any).customId === lineId);

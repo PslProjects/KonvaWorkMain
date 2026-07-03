@@ -131,6 +131,9 @@ export class FaultDetectionComponent implements OnInit, OnDestroy {
       { label: 'SNL-TSS - CHA SSP DN', value: 'LG3'},
      
     ],
+    'NEW_BOARD': [
+      { label: 'KLI SP - PTA SSP UL', value: 'LG8'},
+    ]
   };
 
 

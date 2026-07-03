@@ -221,5 +221,19 @@ rejectFaultSession(payload: {
   //   );
   // }
 
+// apne existing base ke hisaab se path adjust karo
+getFaultRulesByName(name: string) {
+  return this.http.get<any[]>(`${this.baseUrl}/fault-rule/by-circuit`, { params: { name } });
+}
+createFaultRule(payload: any) {
+  return this.http.post(`${this.baseUrl}/fault-rule`, payload);
+}
+updateFaultRule(id: number, payload: any) {
+  return this.http.put(`${this.baseUrl}/fault-rule/${id}`, payload);
+}
+deleteFaultRulesByName(name: string) {
+  return this.http.delete(`${this.baseUrl}/fault-rule/by-circuit`, { params: { name } });
+}
+
 
 }
