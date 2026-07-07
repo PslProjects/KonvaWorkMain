@@ -65,11 +65,28 @@ function evalCondition(expr: string, closed: Set<string>): boolean {
 // It adds custom properties to the fabric object so that they can be saved and loaded correctly
 
 
+
 declare global {
   interface Window {
     webkitAudioContext: typeof AudioContext;
   }
 }
+
+/* =====================================================
+   ✨ SIMPLE RULE TYPES — koi preconditions NAHI!
+   Har fault line ke liye bas 2 cheez likhni hai:
+     1) controlledSignal → MCB jo trip hoga. Fault line par
+        current aate hi (stroke green) guard isko auto-trip
+        karta hai — poora enforcement stroke red/green par hai.
+     2) reverseSignal (optional) → doosri taraf ka breaker,
+        agar us side se bhi feed aa sakti ho to woh bhi
+        trip candidate ban jata hai.
+   + resolutionMap → LG ke saare RS OPEN → fault resolved.
+===================================================== */
+type FaultLineRule = {
+  controlledSignal: string;
+  reverseSignal?: string;
+};
 
 type NormalRule = {
   controlledSignal: string;
@@ -80,1535 +97,18 @@ type NormalRule = {
   };
 };
 
-type FaultRule = {
-  controlledSignal: string;
-  preconditions: string[][];
-  reverse?: {
-    signal: string;
-    conditions: string[][];
-  };
-};
-
 type CircuitRuleSet = {
-  normalMode: NormalRule[];
+  normalMode: NormalRule[];    // 🔵 normal mode ka purana precondition logic
   faultMode: {
-    preconditions: Record<string, FaultRule>;
+    faultLines: Record<string, FaultLineRule>;
     resolutionMap: Record<string, string[]>;
   };
 };
 
-const CIRCUIT_RULES: Record<string, CircuitRuleSet> = {
-
-  /* =====================================================
-     🔵 FINAL CIRCUIT (YOUR EXISTING HARD-CODED LOGIC)
-  ===================================================== */
-  RBR_Board: {
-    normalMode: [
-      {
-        controlledSignal: 'RS8',
-        preconditions: [
-          ['RS5', 'RS14'],
-          ['RS5', 'RS16'],
-          ['RS1', 'RS3'],
-          ['RS14', 'RS6'],
-          ['RS4', 'RS12', 'RS5', 'RS3'],
-          ['RS4', 'RS12', 'RS14', 'RS1'],
-          ['RS4', 'RS12', 'RS16', 'RS1'],
-          ['RS4', 'RS12', 'RS6', 'RS3']
-        ],
-        // reverse: {
-        //   signal: 'RS18',
-        //   conditions: [['RS11']]
-        // }
-      },
-      {
-        controlledSignal: 'RS18',
-        preconditions: [
-          ['RS46', 'RS47'],
-          ['RS37', 'RS38', 'RS45', 'RS47'],
-          ['RS39', 'RS38', 'RS45', 'RS46'],
-          ['RS39', 'RS37'],
-          ['RS26', 'RS37', 'RS27'],
-          ['RS27', 'RS25'],
-          ['RS17', 'RS25'],
-          ['RS15', 'RS27']
-        ],
-        // reverse: {
-        //   signal: 'RS8',
-        //   conditions: [['RS11']]
-        // }
-      }
-    ],
-
-    faultMode: {
-      preconditions: {
-        // LG8: {
-        //   controlledSignal: 'RS8',
-        //   preconditions: [
-        //     ['RS6', 'RS4', 'RS12', 'RS11'],
-        //     ['RS4', 'RS5', 'RS12', 'RS11'],
-        //     ['RS4', 'RS5', 'RS12', 'RS18'],
-        //     ['RS16', 'RS6', 'RS11']
-        //   ],
-        //   reverse: { signal: 'RS18', conditions: [['RS11']] }
-        // },
-
-        LG7: {
-          controlledSignal: 'RS8',
-          preconditions: [
-            ['RS14', 'RS4', 'RS12', 'RS18'],
-            ['RS16', 'RS4', 'RS12', 'RS11'],
-            ['RS4', 'RS12', 'RS14', 'RS11'],
-            ['RS16', 'RS6', 'RS11']
-          ],
-          reverse: { signal: 'RS18', conditions: [['RS11']] }
-        },
-
-        LG11: {
-          controlledSignal: 'RS8',
-          preconditions: [
-            ['RS6', 'RS16', 'RS11'],
-            ['RS5', 'RS6', 'RS11'],
-            ['RS5', 'RS6', 'RS18'],
-            ['RS4', 'RS12', 'RS6', 'RS11']
-          ],
-          reverse: { signal: 'RS18', conditions: [['RS11']] }
-        },
-
-        LG12: {
-          controlledSignal: 'RS8',
-          preconditions: [
-            ['RS6', 'RS16', 'RS11'],
-            ['RS14', 'RS16', 'RS11'],
-            ['RS14', 'RS16', 'RS18'],
-            ['RS4', 'RS12', 'RS16', 'RS11']
-          ],
-          reverse: { signal: 'RS18', conditions: [['RS11']] }
-        },
-
-        // ================= RS18 SIDE =================
-
-        LG24: {
-          controlledSignal: 'RS18',
-          preconditions: [
-            ['RS15', 'RS26', 'RS38', 'RS45', 'RS11'],
-            ['RS25', 'RS15', 'RS11'],
-            ['RS25', 'RS15', 'RS18'],
-            ['RS15', 'RS17', 'RS11'],
-            ['RS15', 'RS27', 'RS11'],
-
-          ],
-          reverse: { signal: 'RS8', conditions: [['RS11']] }
-        },
-
-        LG25: {
-          controlledSignal: 'RS18',
-          preconditions: [
-            ['RS17', 'RS26', 'RS38', 'RS45', 'RS11'],
-            ['RS17', 'RS27', 'RS11'],
-            ['RS17', 'RS27', 'RS18'],
-            ['RS17', 'RS25', 'RS11'],
-            ['RS15', 'RS17', 'RS11']
-          ],
-          reverse: { signal: 'RS8', conditions: [['RS11']] }
-        },
-
-        LG38: {
-          controlledSignal: 'RS18',
-          preconditions: [
-            ['RS17', 'RS15', 'RS11'],
-            ['RS15','RS26', 'RS38', 'RS45','RS11'],
-            ['RS25', 'RS26', 'RS37' ]
-            // ['RS15', 'RS26', 'RS37']
-          ],
-          reverse: { signal: 'RS8', conditions: [['RS11']] }
-        },
-
-        LG39: {
-          controlledSignal: 'RS18',
-          preconditions: [
-            ['RS17', 'RS15', 'RS11'],
-            ['RS17','RS26', 'RS38', 'RS45','RS11'],
-            ['RS27', 'RS26', 'RS39' ]
-
-          ],
-          reverse: { signal: 'RS8', conditions: [['RS11']] }
-        },
-
-        LG45: {
-          controlledSignal: 'RS18',
-          preconditions: [
-            ['RS15', 'RS17', 'RS11'],
-            ['RS15', 'RS26', 'RS38', 'RS45', 'RS11'],
-            ['RS25', 'RS26', 'RS11'],
-            ['RS38', 'RS45', 'RS37', 'RS11'],
-            ['RS38', 'RS45', 'RS37', 'RS18']
-
-          ],
-          reverse: { signal: 'RS8', conditions: [['RS11']] }
-        },
-
-        LG46: {
-          controlledSignal: 'RS18',
-          preconditions: [
-            ['RS15', 'RS17', 'RS11'],
-            ['RS17', 'RS26', 'RS38', 'RS45', 'RS11'],
-            ['RS27', 'RS26', 'RS11'],
-            ['RS38', 'RS45', 'RS39', 'RS11'],
-            ['RS38', 'RS45', 'RS39', 'RS18'],
-
-          ],
-          reverse: { signal: 'RS8', conditions: [['RS11']] }
-        },
-
-        LG75: {
-          controlledSignal: 'RS69',
-          preconditions: [
-            ['RS66', 'RS63', 'RS58', 'RS57', 'RS68'],
-            // ['RS66', 'RS63', 'RS58', 'RS68'],
-            ['RS66', 'RS63', 'RS58', 'RS68'],
-            ['RS63', 'RS62', 'RS58', 'RS68'],
-            ['RS63', 'RS62', 'RS58', 'RS70'],
-            ['RS64', 'RS66', 'RS68'],
-
-
-          ],
-          reverse: { signal: '', conditions: [['']] }
-        },
-
-        LG74: {
-          controlledSignal: 'RS69',
-          preconditions: [
-            //  ['RS66', 'RS63', 'RS58', 'RS57', 'RS68'],
-            ['RS61', 'RS63', 'RS58', 'RS70'],
-            ['RS64', 'RS63', 'RS58', 'RS68'],
-            ['RS63', 'RS58', 'RS61', 'RS68'],
-            ['RS64', 'RS66', 'RS68']
-
-          ],
-          reverse: { signal: '', conditions: [['']] }
-        },
-
-        LG77: {
-          controlledSignal: 'RS69',
-          preconditions: [
-            ['RS64', 'RS66', 'RS68'],
-            ['RS66', 'RS63', 'RS58', 'RS57', 'RS68'],
-            ['RS62', 'RS66', 'RS68'],
-            ['RS62', 'RS66', 'RS70'],
-            ['RS61', 'RS64', 'RS66', 'RS68'],
-
-          ],
-          reverse: { signal: '', conditions: [['']] }
-        },
-        LG76: {
-          controlledSignal: 'RS69',
-          preconditions: [
-            ['RS64', 'RS66', 'RS68'],
-            ['RS64', 'RS63', 'RS58', 'RS57', 'RS68'],
-            ['RS61', 'RS64', 'RS68'],
-            ['RS61', 'RS58', 'RS64', 'RS68']
-          ],
-          reverse: { signal: '', conditions: [['']] }
-        },
-
-        LG88: {
-          controlledSignal: 'RS70',
-          preconditions: [
-            ['RS67', 'RS65','RS68'],
-            ['RS67', 'RS82', 'RS84', 'RS086', 'RS087', 'RS68'],
-            ['RS67', 'RS81', 'RS68'],
-           
-          ],
-          reverse: { signal: '', conditions: [['']] }
-
-        },
-        LG91: {
-          controlledSignal: 'RS70',
-          preconditions: [
-            ['RS67', 'RS65','RS68'],
-            ['RS65', 'RS82', 'RS84', 'RS086', 'RS087', 'RS68'],
-            ['RS65', 'RS80', 'RS68'],
-          ],
-          reverse: { signal: '', conditions: [['']] }
-        },
-        LG100: {
-          controlledSignal: 'RS70',
-          preconditions: [
-            ['RS67', 'RS65','RS68'],
-            ['RS67', 'RS82', 'RS84', 'RS086', 'RS087', 'RS68'],
-            ['RS81', 'RS80','RS68'],
-            ['RS81', 'RS82', 'RS086','RS84'],
-          ],
-        
-          reverse: { signal: '', conditions: [['']] }
-        },
-        LG99: {
-          controlledSignal: 'RS70',
-          preconditions: [
-            // ['RS65','RS82','RS84', 'RS83','RS85','RS100','RS68'],   
-            // ['RS65','RS68'],
-            // ['RS80','RS82','RS68'],
-            // ['RS80','RS82','RS087','RS84','RS70'],
-            // ['RS84','RS087', 'RS68'],
-            ['RS67', 'RS65','RS68'],
-            ['RS65', 'RS82', 'RS84', 'RS086', 'RS087', 'RS68'],
-            ['RS81', 'RS80','RS68'],
-            ['RS80', 'RS82', 'RS087','RS84'],
-            // ['RS82', 'RS68'],
-            // ['RS087','RS68']
-
-          ],
-
-          reverse: { signal: 'RS68', conditions: [['RS69']] }
-        },
-        LG108: {
-          controlledSignal: 'RS70',
-          preconditions: [
-            // ['RS67','RS82','RS84', 'RS83','RS85','RS101','RS68'],
-            // ['RS67','RS68'],
-            // ['RS81','RS68'],
-            // ['RS086','RS68'],
-            // ['RS086','RS83','RS88','RS90','RS68'],
-            // ['RS086','RS83','RS88','RS90','RS70'],
-            // ['RS88','RS90', 'RS68'],
-
-            // ['RS65','RS67',],
-            // ['RS086', 'RS087', 'RS82', 'RS84', 'RS68'],
-            // ['RS67', 'RS90', 'RS91', 'RS83', 'RS85'],
-            // ['RS086','RS90','RS83','RS88','RS68'],
-            ['RS65','RS67',],
-            ['RS086', 'RS087','RS68'],
-            ['RS82', 'RS84','RS68'],
-            ['RS086','RS90','RS83','RS88','RS68'],
-
-
-
-          ],
-          reverse: { signal: 'RS68', conditions: [['RS69']] }
-
-        },
-        LG107: {
-          controlledSignal: 'RS70',
-          preconditions: [
-            // ['RS65','RS82','RS84', 'RS83','RS85','RS100','RS68'],
-            // ['RS65','RS68'],
-            // ['RS80','RS68'],
-            // ['RS087','RS68'],
-            // ['RS087','RS83','RS88','RS91','RS68'],
-            // ['RS087','RS83','RS88','RS91','RS70'],
-            // ['RS88','RS91', 'RS68'],
-            ['RS65','RS67',],
-            ['RS086', 'RS087','RS68'],
-            ['RS82', 'RS84','RS68'],
-            ['RS087','RS91','RS83','RS88', 'RS68'],
-          ],
-          reverse: { signal: 'RS68', conditions: [['RS69']] }
-        },
-        LG119: {
-          controlledSignal: 'RS70',
-          preconditions: [
-            // ['RS67','RS82','RS84', 'RS83','RS85','RS101','RS68'],
-            // ['RS67','RS68'],
-            // ['RS81','RS68'],
-            // ['RS086','RS68'],
-            // ['RS90', 'RS101'],
-            ['RS65','RS67',],
-            ['RS086', 'RS087', 'RS68'],
-            ['RS82', 'RS84','RS68'],
-            ['RS90', 'RS91', 'RS68'],
-            ['RS83', 'RS88', 'RS68'],
-            ['RS90','RS101','RS68']
-           
-
-
-          ],
-          reverse: { signal: '', conditions: [['']] }
-        },
-        LG118: {
-          controlledSignal: 'RS70',
-          preconditions: [
-            // ['RS65','RS82','RS84', 'RS83','RS85','RS101','RS68'],
-            // ['RS65','RS68'],
-            // ['RS80','RS68'],
-            // ['RS087','RS68'],
-            // ['RS91', 'RS100'],
-            ['RS65','RS67',],
-            ['RS086', 'RS087', 'RS68'],
-            ['RS82', 'RS84','RS68'],
-            ['RS90', 'RS91', 'RS68'],
-            ['RS83', 'RS88', 'RS68'],
-            ['RS91','RS100','RS68']
-           
-          ],
-          reverse: { signal: '', conditions: [['']] }
-        },
-
-         LG129: {
-          controlledSignal: 'RS70',
-          preconditions: [
-            ['RS67','RS65','RS68'],
-            ['RS82','RS84'],
-            ['RS086','RS087'],
-            ['RS90','RS91'],
-            ['RS88','RS83'],
-            ['RS101','RS100','RS68'],
-            ['RS98','RS99'],
-            ['RS98','RS104','RS97']
-
-          ],
-
-          reverse: { signal: '', conditions: [['']] }
-        },
-        LG131: {
-          controlledSignal: 'RS70',
-          preconditions: [
-            ['RS67','RS65','RS68'],
-            ['RS82','RS84'],
-            ['RS086','RS087'],
-            ['RS90','RS91'],
-            ['RS88','RS83'],
-            ['RS101','RS100','RS68'],
-            ['RS98','RS99',],
-            // ['RS102','RS94'],
-            ['RS99','RS105','RS97']
-          ],
-          reverse: { signal: '', conditions: [['']] }
-        },
-
-        LG147: {
-          controlledSignal: 'RS70',
-          preconditions: [
-            ['RS67','RS65','RS68'],
-            ['RS82','RS84'],
-            ['RS086','RS087'],
-            ['RS90','RS91'],
-            ['RS88','RS83'],
-            ['RS101','RS100','RS68'],
-            ['RS102','RS94'],
-            ['RS102']
-          ],
-          reverse: { signal: '', conditions: [['']] }
-        },
-        LG138: {
-          controlledSignal: 'RS70',
-          preconditions: [
-           ['RS67','RS65','RS68'],
-            ['RS82','RS84'],
-            ['RS086','RS087'],
-            ['RS90','RS91'],
-            ['RS88','RS83'],
-            ['RS101','RS100','RS68'],
-            ['RS102','RS94'],
-            ['RS94']
-          ],
-          reverse: { signal: '', conditions: [['']] }
-        },
-
-      },
-
-
-      resolutionMap: {
-        LG8: ['RS4', 'RS5', 'RS12'],
-        LG7: ['RS4', 'RS12', 'RS14'],
-        LG11: ['RS5', 'RS6'],
-        LG12: ['RS14', 'RS16'],
-        LG24: ['RS25', 'RS15'],
-        LG25: ['RS17', 'RS27'],
-        LG38: ['RS37', 'RS26', 'RS25'],
-        LG39: ['RS26', 'RS27', 'RS39'],
-        LG45: ['RS37', 'RS38', 'RS45'],
-        LG46: ['RS38', 'RS45', 'RS39'],
-        LG75: ['RS62', 'RS60','RS58','RS63'],
-        LG74: ['RS63', 'RS58', 'RS59', 'RS61'],
-        LG77: ['RS62', 'RS66'],
-        LG76: ['RS61', 'RS64'],
-        LG88: ['RS67', 'RS81'],
-        LG91: ['RS65', 'RS80'],
-        LG100: ['RS81', 'RS82', 'RS84', 'RS086'],
-        LG99: ['RS80', 'RS82', 'RS84', 'RS087'],
-        LG107: ['RS087', 'RS83', 'RS88', 'RS91'],
-        LG108: ['RS086', 'RS83', 'RS88', 'RS90'],
-        LG119: ['RS90', 'RS101'],
-        LG118: ['RS91', 'RS100'],
-        LG129: ['RS97', 'RS98','RS104'],
-        LG131: ['RS97', 'RS99','RS105'],
-        LG147: ['RS102'],
-        LG138: ['RS94']
-
-      }
-    }
-  },
-  /* =====================================================
-     🟡 GILDUICOM (LOGIC READY, REVERSE EMPTY)
-  ===================================================== */
-  HSR_Board: {
-    normalMode: [
-      {
-        controlledSignal: 'RS8',
-        preconditions: [['RS1'],
-        ['RS2'],
-        ['RS5'],
-        ['RS7'],
-
-
-        ],
-        reverse: { signal: '', conditions: [[]] } // 👈 future
-      },
-      {
-        controlledSignal: 'RS011',
-        preconditions: [['RS18'],
-        ['RS15'],
-        ['RS9'],
-        ],
-        reverse: { signal: '', conditions: [] }
-      },
-
-      {
-        controlledSignal: 'RS56',
-        preconditions: [['RS53'],
-        ['RS54'],
-        ['RS152'],
-        ],
-        reverse: { signal: '', conditions: [] }
-      },
-      {
-        controlledSignal: 'RS57',
-        preconditions: [['RS55'],
-        ['RS66', 'RS65'],
-        ['RS060'],
-        ['RS64'],
-        ],
-        reverse: { signal: '', conditions: [] }
-      }
-    ],
-
-    faultMode: {
-      preconditions: {
-        LG2: {
-          controlledSignal: 'RS8',
-          preconditions: [['RS7', 'RS20'],
-          ['RS5', 'RS20'],
-          ['RS2', 'RS20']
-          ],
-          reverse: { signal: 'RS011', conditions: [['RS20']] }
-        },
-
-        LG3: {
-          controlledSignal: 'RS8',
-          preconditions: [['RS7', 'RS20'],
-          ['RS5', 'RS20'],
-          ['RS2', 'RS5', 'RS20']],
-          reverse: { signal: 'RS011', conditions: [['RS20']] }
-        },
-
-        LG4: {
-          controlledSignal: 'RS8',
-          preconditions: [
-            ['RS5', 'RS7', 'RS20'],
-            ['RS7']
-            
-
-          ],
-          reverse: { signal: 'RS011', conditions: [['RS20']] }
-        },
-
-        LG024: {
-          controlledSignal: 'RS011',
-          preconditions: [
-            ['RS9', 'RS20'],
-            ['RS15', 'RS20']
-
-          ],
-          reverse: { signal: 'RS8', conditions: [['RS20']] }
-        },
-        LG025: {
-          controlledSignal: 'RS011',
-          preconditions: [
-            ['RS9', 'RS15', 'RS20'],
-            ['RS9']
-
-          ],
-          reverse: { signal: 'RS8', conditions: [['RS20']] }
-        },
-
-        LG32: {
-          controlledSignal: 'RS45',
-          preconditions: [
-            ['RS042'],
-            ['RS40'],
-            ['RS39'],
-            ['RS037']
-
-          ],
-          reverse: { signal: '', conditions: [] }
-        },
-
-        LG33: {
-          controlledSignal: 'RS45',
-          preconditions: [
-            ['RS042'],
-            ['RS40'],
-            ['RS39']
-          ],
-          reverse: { signal: '', conditions: [] }
-        },
-
-        LG40: {
-          controlledSignal: 'RS45',
-          preconditions: [['RS042'],
-          ['RS40'],
-          ],
-          reverse: { signal: '', conditions: [] }
-        },
-        LG44: {
-          controlledSignal: 'RS45',
-          preconditions: [['RS042']],
-          reverse: { signal: '', conditions: [] }
-        },
-        LG49: {
-          controlledSignal: 'RS44',
-          preconditions: [['RS46']],
-          reverse: { signal: '', conditions: [] }
-        },
-
-        LG57: {
-          controlledSignal: 'RS44',
-          preconditions: [['RS46'],
-          ['RS49'],
-          ['RS50']],
-          reverse: { signal: '', conditions: [] }
-        },
-
-        LG53: {
-          controlledSignal: 'RS44',
-          preconditions: [['RS46'],
-          ['RS49']],
-          reverse: { signal: '', conditions: [] }
-        },
-
-        LG62: {
-          controlledSignal: 'RS56',
-          preconditions: [['RS54'],
-          ['RS53']],
-          reverse: { signal: '', conditions: [] }
-        },
-        LG63: {
-          controlledSignal: 'RS56',
-          preconditions: [['RS54']],
-          reverse: { signal: '', conditions: [] }
-        },
-        LG64: {
-          controlledSignal: 'RS57',
-          preconditions: [['RS55']],
-          reverse: { signal: '', conditions: [] }
-        },
-
-        LG75: {
-          controlledSignal: 'RS57',
-          preconditions: [
-            ['RS55'],
-            ['RS060'],
-            ['RS64']
-
-          ],
-
-          reverse: { signal: '', conditions: [] }
-        },
-
-        LG65: {
-          controlledSignal: 'RS57',
-          preconditions: [
-            ['RS55'],
-            ['RS060']
-          ],
-          reverse: { signal: '', conditions: [] }
-        },
-      },
-
-      resolutionMap: {
-        LG2: ['RS2'],
-        LG3: ['RS5','RS2'],
-        LG024: ['RS15'],
-        LG32: ['RS037'],
-        LG33: ['RS39','RS037'],
-        LG40: ['RS40','RS39'],
-        LG44: ['RS042', 'RS40'],
-        LG57: ['RS50'],
-        LG53: ['RS49','RS50'],
-        LG62: ['RS53'],
-        LG75: ['RS64'],
-        LG65: ['RS060','RS64'],
-        LG4: ['RS5', 'RS7'],
-        LG025: ['RS9', 'RS15'],
-        LG49: ['RS46', 'RS49'],
-        LG63: ['RS54', 'RS53'],
-        LG64: ['RS55', 'RS060'],
-      }
-    }
-   },
-    
-  
-     Branch_Line_Board: {
-       normalMode: [
-      {
-        controlledSignal: 'RS19',
-        preconditions: [['RS34'],
-        ['RS28'],
-        ],
-        reverse: { signal: '', conditions: [[]] } // 👈 future
-      },
-      {
-        controlledSignal: 'RS19',
-        preconditions: [['RS29'],
-        ['RS33'],
-        ],
-        reverse: { signal: '', conditions: [[]] } // 👈 future
-      },
-      {
-        controlledSignal: 'RS58',
-        preconditions: [['RS00046'],
-        ['RS044'],
-        ],
-        reverse: { signal: '', conditions: [[]] } // 👈 future
-      },
-      {
-        controlledSignal: 'RS58',
-        preconditions: [['RS00049'],
-        ['RS47'],
-        ],
-        reverse: { signal: '', conditions: [[]] } // 👈 future
-      },
-      
-      {
-        controlledSignal: 'RS8',
-        preconditions: [['RS1'],
-        ['RS2'],
-        ['RS5'],
-        ['RS7'],
-
-
-        ],
-        reverse: { signal: '', conditions: [[]] } // 👈 future
-      },
-      {
-        controlledSignal: 'RS8',
-        preconditions: [['RS1'],
-        ['RS2'],
-        ['RS5'],
-        ['RS7'],
-
-        ],
-        reverse: { signal: '', conditions: [[]] } // 👈 future
-      }
-    ],
-
-    faultMode: {
-      preconditions: {
-        LG1: {
-          controlledSignal: 'RS18',
-          preconditions: [
-            ['RS25', 'RS24'],
-            ['RS25', 'RS25', 'RS16', 'RS82'],
-            ['RS15'],
-            ['RS14'],
-            ['RS12'],
-            ['RS10'],
-            ['RS09']
-          ],
-          reverse: { signal: 'RS19', conditions: [['RS82']] }
-        },
-        LG2: {
-          controlledSignal: 'RS18',
-          preconditions: [
-            ['RS25', 'RS24'],
-            ['RS25', 'RS25', 'RS16', 'RS82'],
-            ['RS15'],
-            ['RS14'],
-            ['RS12']
-          ],
-          reverse: { signal: 'RS19', conditions: [['RS82']] }
-        },
-        LG4: {
-          controlledSignal: 'RS18',
-          preconditions: [
-            ['RS25', 'RS24'],
-            ['RS25', 'RS16', 'RS82'],
-            ['RS15'],
-            ['RS14']
-          ],
-          reverse: { signal: 'RS19', conditions: [['RS82']] }
-        },
-        LG9: {
-          controlledSignal: 'RS18',
-          preconditions: [['RS24', 'RS16'],
-          ['RS24', 'RS25'],
-          ],
-          reverse: { signal: 'RS19', conditions: [['RS82']] }
-        },
-        LG056: {
-          controlledSignal: 'RS71',
-          preconditions: [
-            ['RS66', 'RS70'],
-            ['RS62', 'RS70'],
-            ['RS078', 'RS70'],
-            ['RS079', 'RS70'],
-            ['RS80', 'RS70'],
-
-          ],
-          reverse: { signal: 'RS72', conditions: [['RS70']] }
-        },
-        LG055: {
-          controlledSignal: 'RS71',
-          preconditions: [
-            ['RS66', 'RS70'],
-            ['RS62', 'RS70'],
-            ['RS078', 'RS70'],
-            ['RS079', 'RS70'],
-            // ['RS80','RS70'],
-
-          ],
-          reverse: { signal: 'RS72', conditions: [['RS70']] }
-        },
-        LG054: {
-          controlledSignal: 'RS71',
-          preconditions: [
-            ['RS66', 'RS70'],
-            ['RS62', 'RS70'],
-            ['RS078', 'RS70']
-          ],
-          reverse: { signal: 'RS72', conditions: [['RS70']] }
-        },
-        LG51: {
-          controlledSignal: 'RS71',
-          preconditions: [
-            ['RS66', 'RS70'],
-            ['RS62', 'RS70'],
-            
-          ],
-          reverse: { signal: 'RS72', conditions: [['RS70']] }
-        },
-        LG47: {
-          controlledSignal: 'RS72',
-          preconditions: [
-            ['RS69', 'RS70'],
-            ['RS63', 'RS70']
-          ],
-          reverse: { signal: 'RS72', conditions: [['RS70']] }
-        },
-        LG18: {
-          controlledSignal: 'RS18',
-          preconditions: [
-            ['RS25', 'RS24'],
-            ['RS25', 'RS16', 'RS82'],
-            ['RS15'],
-            ['RS013'],
-            ['RS40']
-          ],
-          reverse: { signal: 'RS19', conditions: [['RS82']] }
-        },
-
-        LG23: {
-          controlledSignal: 'RS58',
-          preconditions: [['RS046'],
-          ['RS55', 'RS52'],
-          ['RS55', 'RS53'],
-          ['RS55', 'RS51']],
-          reverse: { signal: '', conditions: [['']] }
-        },
-        LG22: {
-          controlledSignal: 'RS58',
-          preconditions: [['RS044'],
-          ['RS55', 'RS52'],
-          ['RS55', 'RS53'],
-          ['RS55', 'RS51']],
-          reverse: { signal: '', conditions: [['']] }
-        },
-        LG40: {
-          controlledSignal: 'RS58',
-          preconditions: [['RS049'],
-          ['RS50'],
-          ['RS55', 'RS52'],
-          ['RS55', 'RS53'],],
-          reverse: { signal: '', conditions: [['RS']] }
-        },
-        LG38: {
-          controlledSignal: 'RS58',
-          preconditions: [
-            ['RS50'],
-            ['RS50'],
-            ['RS55', 'RS52'],
-            ['RS55', 'RS53'],
-          ],
-          reverse: { signal: 'RS', conditions: [['RS']] }
-        },
-        LG42: {
-          controlledSignal: 'RS58',
-          preconditions: [
-            ['RS55','RS53'],
-             ['RS55','RS53','RS43','RS51','RS50'],
-            ['RS55','RS53','RS51'],
-            ['RS55','RS51'],
-            ['RS55','RS044'],
-          
-            
-          ],
-          reverse: { signal: 'RS70', conditions: [['RS']] }
-        },
-        LG018: {
-          controlledSignal: 'RS18',
-          preconditions: [
-            ['RS25', 'RS24'],
-            ['RS25', 'RS16', 'RS82'],
-            ['RS15'],
-            ['RS013']
-          ],
-          reverse: { signal: 'RS19', conditions: [['RS82']] }
-
-        },
-
-        LG39: {
-          controlledSignal: 'RS58',
-          preconditions: [
-            ['RS55', 'RS53'],
-            ['RS55', 'RS51', 'RS43', 'RS50', 'RS50', 'RS47'],
-            ['RS53', 'RS43', 'RS50', 'RS50', 'RS47'],
-            ['RS50', 'RS47'],
-            ['RS50'],
-            ['RS47']
-          ],
-          reverse: { signal: 'RS70', conditions: [['RS']] }
-        },
-        LG46: {
-          controlledSignal: 'RS57',
-          preconditions: [
-            ['RS54'],
-
-          ],
-          reverse: { signal: 'RS70', conditions: [['RS']] }
-        },
-        LG48: {
-          controlledSignal: 'RS72',
-          preconditions: [
-            ['RS69', 'RS70'],
-          ],
-
-          reverse: { signal: 'RS70', conditions: [['RS']] }
-        },
-
-        LG49: {
-          controlledSignal: 'RS71',
-          preconditions: [['RS66', 'RS70']],
-          reverse: { signal: 'RS70', conditions: [['RS']] }
-        },
-        LG53: {
-          controlledSignal: 'RS71',
-          preconditions: [
-            ['RS66', 'RS70'],
-            ['RS62', 'RS70']
-          ],
-          reverse: {
-            signal: 'RS70', conditions: [['RS']]
-
-          }
-        },
-        LG5: {
-          controlledSignal: 'RS18',
-          preconditions: [
-            ['RS25', 'RS24'],
-            ['RS24', 'RS16', 'RS82'],
-            ['RS25', 'RS24', 'RS16', 'RS82'],
-            ['RS25', 'RS16'],
-            ['RS25', 'RS15']
-          ],
-          reverse: { signal: 'RS70', conditions: [['RS']] }
-        },
-
-        LG11: {
-          controlledSignal: 'RS19',
-          preconditions: [['RS27', 'RS30', 'RS32', 'RS82'],
-          ['RS26', 'RS27', 'RS82'],
-          ['RS27', 'RS29', 'RS82'],
-          ['RS27', 'RS29', 'RS19']],
-          reverse: { signal: 'RS70', conditions: [['RS']] }
-        },
-        LG10: {
-          controlledSignal: 'RS19',
-          preconditions: [['RS26', 'RS30', 'RS32', 'RS82'],
-          ['RS26', 'RS27', 'RS82'],
-          ['RS26', 'RS28', 'RS82'],
-          ['RS26', 'RS28', 'RS19']],
-        reverse: { signal: 'RS70', conditions: [['RS']] }
-        },
-        LG013: {
-          controlledSignal: 'RS19',
-          preconditions: [
-            ['RS26', 'RS30', 'RS32', 'RS82'],
-            ['RS26', 'RS27', 'RS82'],
-            ['RS28', 'RS30', 'RS32', 'RS82'],
-            ['RS28', 'RS30', 'RS32', 'RS19']
-          ],
-          reverse: { signal: 'RS18', conditions: [['RS82']] }
-        },
-        LG12: {
-          controlledSignal: 'RS19',
-          preconditions: [['RS27', 'RS30', 'RS32', 'RS82'],
-          ['RS27', 'RS26', 'RS82'],
-          ['RS29', 'RS30', 'RS32', 'RS82'],
-          ['RS29', 'RS30', 'RS32', 'RS19']],
-          reverse: { signal: 'RS18', conditions: [['RS82']] }
-        },
-        LG19: {
-          controlledSignal: 'RS58',
-          preconditions: [
-            ['RS55', 'RS53'],
-            ['RS55', 'RS53', 'RS43', 'RS50'],
-            ['RS53', 'RS50'],
-            ['RS53', 'RS43'],
-            ['RS43']
-          ],
-          reverse: { signal: 'RS18', conditions: [['RS82']] }
-        },
-
-
-      },
-      resolutionMap: {
-        LG1: ['RS09', 'RS2'],
-        LG2: ['RS10', 'RS12'],
-        LG4: ['RS12', 'RS14'],
-        LG9: ['RS16', 'RS24'],
-        LG056: ['RS80', 'RS81'],
-        LG054: ['RS078', 'RS079'],
-        LG51: ['RS62', 'RS078'],
-        LG013: ['RS28', 'RS30', 'RS32'],
-        LG12: ['RS29', 'RS30', 'RS32'],
-        LG11: ['RS29', 'RS27'],
-        LG10: ['RS26', 'RS28'],
-        LG47: ['RS63'],
-        LG18: ['RS40', 'RS0041'],
-        LG22: ['RS044'],
-        LG40: ['RS049'],
-        LG38: ['RS50','RS47'],
-        LG42: ['RS55', 'RS51', 'RS044'],
-        LG018: ['RS013', 'RS40'],
-        LG39: ['RS47'],
-        LG46: ['RS54'],
-        LG48: ['RS69', 'RS63'],
-        LG49: ['RS66', 'RS62'],
-        LG53: ['RS62','RS078'],
-        LG055: ['RS079', 'RS80'],
-        LG19: ['RS43', 'RS0041'],
-        LG20: ['RS060', 'RS71'],
-        LG15: ['RS35', 'RS34'],
-        LG16: ['RS33', 'RS060', 'RS74'],
-        LG5: ['RS15', 'RS25'],
-      }
-    }
-  },
-
-
-  Main_Line_Board: {
-    normalMode: [
-      // {
-      //   controlledSignal: 'RS6',
-      //   preconditions: [['RS011', 'RS13'],
-      //   ['RS04', 'RS03'],
-      //   ['RS4', 'RS3'],
-      //   ['RS26'],
-      //   ['RS27'],
-      //   ['RS28'],
-      //   ['RS17', 'RS18'],
-      //   ['RS19', 'RS20'],
-      //   ['RS41', 'RS16'],
-      //   ],
-      //   reverse: { signal: '', conditions: [[]] } // 👈 future
-      // },
-      // {
-      //   controlledSignal: 'RS26',
-      //   preconditions: [['RS011', 'RS13'],
-      //   ['RS04', 'RS03'],
-      //   ['RS4', 'RS3'],
-      //   ['RS10'],
-      //   ['RS6'],
-      //   ['RS08'],
-      //   ['RS17', 'RS18'],
-      //   ['RS19', 'RS20'],
-      //   ['RS41', 'RS16'],
-      //   ],
-      //   reverse: { signal: '', conditions: [[]] } // 👈 future
-      // },
-      // {
-      //   controlledSignal: 'RS30',
-      //   preconditions: [['RS00065'],
-      //   ['RS35'],
-      //   ['RS014']
-      //   ],
-      //   reverse: { signal: '', conditions: [[]] } // 👈 future
-      // },
-      // {
-      //   controlledSignal: 'RS30',
-      //   preconditions: [['RS65'],
-      //   ['RS33'],
-      //   ['RS060']
-      //   ],
-      //   reverse: { signal: '', conditions: [[]] } // 👈 future
-      // },
-      // {
-      //   controlledSignal: 'RS30',
-      //   preconditions: [['RS0064'],
-      //   ['RS35'],
-      //   ['RS014']
-      //   ],
-      //   reverse: { signal: '', conditions: [[]] } // 👈 future
-      // },
-      // {
-      //   controlledSignal: 'RS30',
-      //   preconditions: [['RS0061'],
-      //   ['RS33'],
-      //   ['RS060']
-      //   ],
-      //   reverse: { signal: '', conditions: [[]] } // 👈 future
-      // },
-       {
-        controlledSignal: 'RS92',
-        preconditions: [['RS048'],
-        ['RS82']
-        ],
-        reverse: { signal: '', conditions: [[]] } // 👈 future
-      },
-      {
-        controlledSignal: 'RS92',
-        preconditions: [['RS049'],
-        ['RS81']
-        ],
-        reverse: { signal: '', conditions: [[]] } // 👈 future
-      },
-      {
-        controlledSignal: 'RS92',
-        preconditions: [['RS044'],
-        ['RS43','RS42'],
-        ['RS82']
-        ],
-        reverse: { signal: '', conditions: [[]] } // 👈 future
-      },
-      
-    ],
-
-    faultMode: {
-      preconditions: {
-        LG1: {
-          controlledSignal: 'RS26',
-          preconditions: [
-            ['RS23', 'RS21'],
-            ['RS20', 'RS19'],
-            ['RS18', 'RS17'],
-            ['RS16', 'RS41'],
-            ['RS041', 'RS16', 'RS0016']
-          ],
-          reverse: { signal: 'RS', conditions: [['RS']] }
-
-        },
-        LG3: {
-          controlledSignal: 'RS6',
-          preconditions: [
-            ['RS3', 'RS4'],
-            ['RS3', 'RS4', 'RS12', 'RS15'],
-            ['RS3', 'RS12', 'RS15'],
-            ['RS3', 'RS13'],
-
-          ],
-          reverse: { signal: 'RS', conditions: [['RS']] }
-        },
-       LG4: {
-          controlledSignal: 'RS6',
-          preconditions: [['RS4', 'RS3', 'RS12', 'RS15'],
-          ['RS4', 'RS3'],
-          ['RS4', 'RS12', 'RS15'],
-          ['RS4', 'RS011'],
-
-          ],
-          reverse: { signal: 'RS', conditions: [['RS']] }
-        },
-
-
-       LG5: {
-          controlledSignal: 'RS6',
-          preconditions: [['RS3', 'RS4', 'RS12', 'RS15'],
-          ['RS3', 'RS12', 'RS15'],
-          ['RS3', 'RS4'],
-          ['RS13', 'RS12', 'RS15']
-          ],
-          reverse: { signal: 'RS19', conditions: [['RS82']] }
-        },
-
-        LG6: {
-          controlledSignal: 'RS6',
-          preconditions: [['RS4', 'RS3'],
-          ['RS4', 'RS12', 'RS15'],
-          ['RS011', 'RS12', 'RS15']
-          ],
-          reverse: { signal: 'RS', conditions: [['RS']] }
-        },
-
-        LG8: {
-          controlledSignal: 'RS26',
-          preconditions: [
-          ['RS21', 'RS23'],
-          ['RS19', 'RS20'],
-          ['RS17', 'RS18'],
-          ['RS41', 'RS16'],
-          ['RS41','RS041','RS0016']
-          ],
-          reverse: { signal: 'RS', conditions: [['RS']] }
-        },
-        LG9: {
-          controlledSignal: 'RS26',
-          preconditions: [
-          ['RS21', 'RS23'],
-          ['RS19','RS20'],
-          ['RS17','RS18'],
-          ['RS17', 'RS16']
-
-          ],
-          reverse: { signal: 'RS', conditions: [['RS']] }
-        },
-
-         LG10: {
-          controlledSignal: 'RS26',
-          preconditions: [
-          ['RS21', 'RS23'],
-          ['RS19','RS20'],
-          ['RS17','RS18'],
-          ['RS18', 'RS41']
-          ],
-          reverse: { signal: 'RS', conditions: [['RS']] }
-        },
-         LG11: {
-          controlledSignal: 'RS26',
-          preconditions: [
-            ['RS21', 'RS23'],
-            ['RS23', 'RS20'],
-
-          ],
-          reverse: { signal: 'RS', conditions: [['RS']] }
-        },
-        LG12: {
-          controlledSignal: 'RS26',
-          preconditions: [
-            ['RS21', 'RS23'],
-            ['RS21', 'RS19'],
-
-          ],
-          reverse: { signal: 'RS', conditions: [['RS']] }
-        },
-
-        LG13: {
-          controlledSignal: 'RS30',
-          preconditions: [
-            ['RS24', 'RS25', 'RS039'],
-            ['RS24','RS014', 'RS060', 'RS74','RS34','RS36', 'RS37'],
-            ['RS24', 'RS36', 'RS35']
-
-          ],
-          reverse: { signal: 'RS', conditions: [['RS']] }
-
-        },
-
-        LG14: {
-          controlledSignal: 'RS30',
-          preconditions: [
-            ['RS24', 'RS25', 'RS039'],
-            ['RS25','RS014', 'RS060', 'RS74','RS34','RS36', 'RS37'],
-            ['RS25', 'RS33', 'RS37']
-             ],
-          reverse: { signal: 'RS', conditions: [['RS']] }
-        },
-
-        LG15: {
-          controlledSignal: 'RS30',
-          preconditions: [
-          ['RS24', 'RS25','RS039'],
-          ['RS35', 'RS33'],
-          ['RS24','RS34','RS36','RS74'],
-          ['RS74', 'RS014','RS34','RS35']
-        ],
-          reverse: { signal: 'RS', conditions: [['RS']] }
-        },
-
-        LG16: {
-          controlledSignal: 'RS30',
-          preconditions: [   
-          ['RS24', 'RS25','RS039'],
-          ['RS35', 'RS33'],
-          ['RS25','RS34','RS36','RS74'],
-          ['RS33','RS34','RS060','RS74']
-        ],
-          reverse: { signal: 'RS', conditions: [['RS']] }
-        },
-
-         LG19: {
-          controlledSignal: 'RS30',
-          preconditions: [
-          ['RS24', 'RS25', 'RS039'],
-           ['RS35', 'RS33', 'RS039'],
-            ['RS34', 'RS74', 'RS039'],
-            ['RS014','RS060','RS039'],
-            ['RS77', 'RS60', 'RS014']
-
-          ],
-          reverse: { signal: 'RS', conditions: [['RS']] }
-        },
-
-        LG20: {
-          controlledSignal: 'RS30',
-          preconditions: [
-           ['RS24', 'RS25', 'RS039'],
-            ['RS35', 'RS33', 'RS039'],
-            ['RS34', 'RS74', 'RS039'],
-            ['RS014','RS060','RS039'],
-            ['RS060', 'RS60', 'RS71']
-          ],
-          reverse: { signal: 'RS', conditions: [['RS']] }
-        },
-
-        LG020: {
-          controlledSignal: 'RS30',
-          preconditions: [
-            ['RS24', 'RS25', 'RS039'],
-            ['RS35', 'RS33', 'RS039'],
-            ['RS34', 'RS74', 'RS039'],
-            ['RS014','RS060','RS039'],
-            ['RS0010', 'RS0009']
-          ],
-          reverse: { signal: 'RS', conditions: [['RS']] }
-        },
-        LG21: {
-          controlledSignal: 'RS30',
-          preconditions: [
-           ['RS24', 'RS25', 'RS039'],
-            ['RS35', 'RS33', 'RS039'],
-            ['RS34', 'RS74', 'RS039'],
-            ['RS014','RS060','RS039'],
-            ['RS76','RS0009']
-          ],
-          reverse: { signal: 'RS', conditions: [['RS']] }
-        },
-
-
-        LG22: {
-          controlledSignal: 'RS91',
-          preconditions: [
-             ['RS87','RS89','RS97'],
-             ['RS87','RS066','RS0079','RS97'],
-             ['RS068','RS67','RS97'],
-             ['RS068','RS066','RS0079']
-          ],
-          reverse: { signal: 'RS', conditions: [['RS']] }
-        },
-         LG23: {
-          controlledSignal: 'RS91',
-          preconditions: [
-            ['RS87','RS89','RS97'],
-            ['RS89','RS066','RS0079','RS97'],
-            ['RS068','RS67','RS97'],
-            ['RS67','RS066','RS0079']
-
-          ],
-          reverse: { signal: 'RS', conditions: [['RS']] }
-        },
-        LG24: {
-          controlledSignal: 'RS91',
-          preconditions: [
-            ['RS87','RS89','RS97'],
-            ['RS89','RS066','RS0079'],
-            ['RS89','RS67']
-
-          ],
-          reverse: { signal: 'RS', conditions: [['RS']] }
-        },
-        LG27: {
-          controlledSignal: 'RS91',
-          preconditions: [
-            ['RS87','RS89','RS97'],
-            ['RS87','RS066','RS0079'],
-            ['RS87','RS068']
-
-          ],
-          reverse: { signal: 'RS', conditions: [['RS']] }
-        },
-         LG28: {
-          controlledSignal: 'RS92',
-          preconditions: [
-            ['RS88', 'RS90','RS97'],
-            ['RS88', 'RS86',]
-          ],
-          reverse: { signal: 'RS', conditions: [['RS']] }
-        },
-        LG29: {
-          controlledSignal: 'RS92',
-          preconditions: [
-            ['RS88', 'RS90','RS97'],
-            ['RS90', 'RS85',]
-          ],
-
-          reverse: { signal: 'RS', conditions: [['RS']] }
-        },
-        LG30: {
-          controlledSignal: 'RS92',
-          preconditions: [
-          ['RS88', 'RS90','RS97'],
-          ['RS86','RS85'],
-          ['RS83','RS84'],
-          ['RS83','RS82']
-          ],
-          reverse: { signal: 'RS', conditions: [['RS']] }
-        },
-        LG31: {
-          controlledSignal: 'RS92',
-          preconditions: [
-          ['RS88', 'RS90','RS97'],
-          ['RS86','RS85'],
-          ['RS83','RS84'],
-          ['RS84','RS81']
-          ],
-          reverse: { signal: 'RS', conditions: [['RS']] }
-        },
-        LG32: {
-          controlledSignal: 'RS92',
-          preconditions: [
-            ['RS90', 'RS88','RS97'],
-            ['RS81', 'RS82','RS97'],
-             ['RS86','RS85','RS97'],
-            ['RS84','RS83','RS97'],
-            ['RS80', 'RS82', 'RS58'],
-          ],
-          reverse: { signal: 'RS', conditions: [['RS']] }
-        },
-
-        LG35: {
-          controlledSignal: 'RS92',
-          preconditions: [
-          ['RS90', 'RS88','RS97'],
-           ['RS86','RS85','RS97'],
-            ['RS84','RS83','RS97'],  
-          ['RS81', 'RS82','RS97'],
-          ['RS55','RS48']
-          ],
-          reverse: { signal: 'RS', conditions: [['RS']] }
-        },
-
-         LG37: {
-          controlledSignal: 'RS92',
-          preconditions: [
-            ['RS90', 'RS88','RS97'],
-            ['RS86','RS85','RS97'],
-            ['RS84','RS83','RS97'],
-            ['RS81', 'RS82','RS97'],
-            ['RS54','RS48']
-          ],
-          reverse: { signal: 'RS', conditions: [['RS']] }
-        },
-
-         LG40: {
-          controlledSignal: 'RS92',
-          preconditions: [
-             ['RS90', 'RS88','RS97'],
-            ['RS86','RS85','RS97'],
-            ['RS84','RS83','RS97'],
-            ['RS81', 'RS82','RS97'],
-            ['RS53','RS42']
-          ],
-          reverse: { signal: 'RS', conditions: [['RS']] }
-        },
-
-       LG41: {
-          controlledSignal: 'RS92',
-          preconditions: [
-            ['RS90', 'RS88','RS97'],
-             ['RS86','RS85','RS97'],
-            ['RS84','RS83','RS97'],
-            ['RS81', 'RS82','RS97'],
-            ['RS45','RS43','RS81','RS80']
-          ],
-          reverse: { signal: 'RS', conditions: [['RS']] }
-
-        },
-
-       LG054: {
-          controlledSignal: 'RS30',
-          preconditions: [
-           ['RS24', 'RS25', 'RS039'],
-            ['RS35', 'RS33', 'RS039'],
-            ['RS34', 'RS74', 'RS039'],
-            ['RS014','RS060','RS039'],
-            ['RS70','RS62']
-          ],
-          reverse: { signal: 'RS', conditions: [['RS']] }
-        },
-
-       
-        LG055: {
-          controlledSignal: 'RS30',
-          preconditions: [
-            ['RS24', 'RS25', 'RS039'],
-             ['RS35', 'RS33', 'RS039'],
-            ['RS34', 'RS74', 'RS039'],
-            ['RS014','RS060','RS039'],
-            ['RS69','RS62']
-          ],
-          reverse: { signal: 'RS', conditions: [['RS']] }
-        },
-
-        
-      },
-      
-      resolutionMap: {
-        LG1: ['RS16','RS041','RS0016'],
-        LG3: ['RS3', 'RS13'],
-        LG4: ['RS4', 'RS011'],
-        LG5: ['RS13', 'RS12', 'RS15'],
-        LG6: ['RS011', 'RS12', 'RS15'],
-        LG8: ['RS41','RS041','RS0016'],
-        LG9: ['RS17','RS16'],
-        LG10: ['RS18','RS41'],
-        LG11: ['RS20', 'RS23'],
-        LG12: ['RS21', 'RS19'],
-        LG13: ['RS24', 'RS35', 'RS36'],
-        LG14: ['RS25', 'RS33', 'RS37'],
-        LG15: ['RS35', 'RS34','RS74','RS014'],
-        LG16: ['RS33', 'RS060', 'RS74','RS34'],
-        LG19: ['RS77', 'RS60', 'RS014'],
-        LG20: ['RS060', 'RS71','RS60'],
-        LG020: ['RS0010','RS0009'],
-        LG21: ['RS0009', 'RS76'],
-        LG22: ['RS068','RS066','RS0079'],
-        LG23: ['RS67','RS066','RS0079'],
-        LG24: ['RS89', 'RS67'],
-        LG27: ['RS87', 'RS068'],
-        LG28: ['RS88', 'RS86'],
-        LG29: ['RS85', 'RS90'],
-        LG30: ['RS82', 'RS83'],
-        LG31: ['RS81', 'RS84'],
-        LG32: ['RS80', 'RS82','RS58'],
-        LG35: ['RS48', 'RS55'],
-        LG37: ['RS54', 'RS48'],
-        LG39: ['RS81'],
-        LG40: ['RS53', 'RS42'],
-        LG41: ['RS45', 'RS81','RS80','RS43'],
-        LG45: ['RS49'],
-        LG054: ['RS70','RS62'],
-        LG055: ['RS69', 'RS62'],
-        
-        
-       
-
-      }
-    }
-  }
-
-
-};
-
+// Static hard-coded normal/fault rules removed.
+// Normal mode rules now come from normal_mode_rule table.
+// Fault mode rules now come from fault_rule table.
+const CIRCUIT_RULES: Record<string, CircuitRuleSet> = {};
 
 
 function addCustomPropsToObject(obj: fabric.Object) {
@@ -2138,11 +638,9 @@ export class CanvasComponent implements OnInit, OnDestroy {  // ✅ OnDestroy AD
   }
   startTime: number | null = null;
   endTime: number | null = null;
-  // private getFaultControlledSignal(circuitName: string, faultLine: string): string | undefined {
-  //   return CIRCUIT_RULES?.[circuitName]?.faultMode?.preconditions?.[faultLine]?.controlledSignal;
-  // }
   private getFaultControlledSignal(circuitName: string, faultLine: string): string | undefined {
-  return this.activeCircuitRule?.faultMode?.preconditions?.[faultLine]?.controlledSignal;
+    const ruleSet = this.activeCircuitRule;
+    return ruleSet?.faultMode?.faultLines?.[faultLine]?.controlledSignal;
   }
 
 
@@ -2256,9 +754,43 @@ export class CanvasComponent implements OnInit, OnDestroy {  // ✅ OnDestroy AD
   verificationMessage: string = '';
   timeTaken: number | null = null;
 
+  /* ---------- VERIFY BUTTON ENABLE/DISABLE ----------
+     Fault verify tabhi enabled hoga jab current faultLine ke resolutionMap
+     me diye gaye saare RS user operate/open kar chuka ho. */
+  get canVerifyFault(): boolean {
+    if (!this.isFaultDetectionMode || !this.faultLine) return false;
+
+    const ruleSet = this.activeCircuitRule;
+    const required = ruleSet?.faultMode?.resolutionMap?.[this.faultLine];
+
+    return !!required && required.length > 0 && required.every(rs => this.closedSignals.has(rs));
+  }
+
   verifyFaultResolution() {
     if (!this.faultLine || !this.pendingSessionId) {
       console.error('❌ Fault line missing');
+      return;
+    }
+
+    const ruleSet = this.activeCircuitRule;
+    const required = ruleSet?.faultMode?.resolutionMap?.[this.faultLine];
+    const isolated = !!required && required.length > 0 && required.every(rs => this.closedSignals.has(rs));
+
+    if (!isolated) {
+      const pending = (required || [])
+        .filter(rs => !this.closedSignals.has(rs))
+        .map(rs => this.redSignalDisplayMap[rs] || rs);
+
+      Swal.fire({
+        icon: 'warning',
+        title: 'Fault Not Resolved',
+        html: pending.length > 0
+          ? `Verify nahi ho sakta — pehle fault line SEPARATE karo. In RS ko operate karo: <b>${pending.join(', ')}</b>`
+          : `Verify nahi ho sakta — is fault line ke liye resolution steps define nahi hain.`,
+        background: '#fff3cd',
+        color: '#000000',
+        confirmButtonColor: '#ca8a04'
+      });
       return;
     }
 
@@ -2537,6 +1069,87 @@ export class CanvasComponent implements OnInit, OnDestroy {  // ✅ OnDestroy AD
     }, 1000);
   }
 
+  /** Recursion guard: trip logic khud updateLineColors ke andar chalta hai */
+  private suppressFaultLineTripGuard = false;
+
+  /** Ek hi energize-event par baar-baar popup na aaye iske liye flag */
+  private faultLineTripNotified = false;
+
+  private isLineStrokeGreen(lineId: string): boolean {
+    const lines = this.canvas.getObjects().filter(obj => (obj as any).customId === lineId);
+
+    if (lines.length === 0) {
+      console.warn('🛡️ Guard: fault line canvas par nahi mili →', lineId,
+        '| available LG ids:',
+        this.canvas.getObjects()
+          .map(o => (o as any).customId)
+          .filter(id => typeof id === 'string' && id.startsWith('LG')));
+      return false;
+    }
+
+    return lines.some(line => {
+      const stroke = String((line as any).stroke || '').toLowerCase().replace(/\s+/g, '');
+      const isGreen =
+        stroke === 'green' ||
+        stroke === '#008000' ||
+        stroke === '#00ff00' ||
+        stroke === '#0f0' ||
+        stroke === 'lime' ||
+        stroke === 'rgb(0,128,0)' ||
+        stroke === 'rgb(0,255,0)' ||
+        stroke.includes('green');
+      console.log('🛡️ Guard stroke check:', lineId, '→ stroke =', stroke, '| green =', isGreen);
+      return isGreen;
+    });
+  }
+
+  /**
+   * FAULT LINE TRIP GUARD (purane fault preconditions ka replacement)
+   * Jis LG line par fault hai, agar woh line green/energized ho jaye
+   * to us faultLine ka controlledSignal auto-trip ho jayega.
+   */
+  private enforceFaultLineTripGuard(): void {
+    if (!this.isFaultDetectionMode || !this.faultLine) return;
+
+    const ruleSet = this.activeCircuitRule;
+    const faultRule = ruleSet?.faultMode?.faultLines?.[this.faultLine];
+
+    if (!faultRule) {
+      console.warn('🛡️ Guard: faultLines me entry nahi hai →', this.faultLine, '| circuit:', this.selectedCircuitName);
+      return;
+    }
+
+    if (!this.isLineStrokeGreen(this.faultLine)) {
+      this.faultLineTripNotified = false;
+      return;
+    }
+
+    const candidates: string[] = [faultRule.controlledSignal];
+    if (faultRule.reverseSignal) candidates.push(faultRule.reverseSignal);
+
+    const toTrip = candidates.filter(rs => !!rs && !this.closedSignals.has(rs));
+    console.log('🛡️ Guard: fault line GREEN! candidates =', candidates, '| toTrip =', toTrip);
+
+    if (toTrip.length === 0) return;
+
+    this.closeRedSignalsByIds(toTrip);
+    this.canvas.renderAll();
+
+    if (!this.faultLineTripNotified) {
+      this.faultLineTripNotified = true;
+      const displayName = this.redSignalDisplayMap[faultRule.controlledSignal] || faultRule.controlledSignal;
+      this.startFaultBlinkEffect();
+      // Swal.fire({
+      //   icon: 'warning',
+      //   title: 'MCB Tripped',
+      //   html: `<b>${displayName}</b> open nahi rah sakta — fault line <b>${this.faultLine}</b> par current aa raha tha, isliye MCB wapas trip ho gaya. Pehle fault section isolate karo.`,
+      //   background: '#fff3cd',
+      //   color: '#000000',
+      //   confirmButtonColor: '#ca8a04'
+      // });
+    }
+  }
+
   // Helper to batch close given redSignals using existing popup logic
   closeRedSignalsByIds(ids: string[], isAuto: boolean = true) {
     ids.forEach(rsId => {
@@ -2799,7 +1412,7 @@ export class CanvasComponent implements OnInit, OnDestroy {  // ✅ OnDestroy AD
     const isCloseType = (label === 'closeHorizontal' || label === 'closeVertical');
 
     // const circuitRule = CIRCUIT_RULES[this.selectedCircuitName];
-      const circuitRule = this.activeCircuitRule;
+    const circuitRule = this.activeCircuitRule;
 
 
 
@@ -2905,8 +1518,105 @@ export class CanvasComponent implements OnInit, OnDestroy {  // ✅ OnDestroy AD
       });
     }
 
+    // // =====================================================
+    // // 🔴 FAULT MODE
+    // // =====================================================
+    // if (this.isFaultDetectionMode && circuitRule?.faultMode) {
+
+    //   if (!this.faultLine) return;
+
+    //   this.userActions.push(redSignalId);
+
+    //   if (state === 'close') this.closedSignals.add(redSignalId);
+    //   else this.closedSignals.delete(redSignalId);
+
+    //   const faultRule =
+    //     circuitRule.faultMode.preconditions[this.faultLine];
+
+    //   if (faultRule) {
+
+    //     const controlledSignal = faultRule.controlledSignal;
+    //     const preconditions = faultRule.preconditions;
+
+    //     /* ---------- BLOCK OPEN ---------- */
+    //     if (redSignalId === controlledSignal && state === 'open') {
+
+    //       const canOpen = preconditions.some(seq =>
+    //         seq.every(rs => this.closedSignals.has(rs))
+    //       );
+
+    //       if (!canOpen) {
+    //         Swal.fire({
+    //           icon: 'warning',
+    //           title: 'Action Blocked',
+    //           html: `You cannot open FCB because fault is not resolved yet.`,
+    //         });
+
+    //         this.closedSignals.add(controlledSignal);
+    //         this.closePopup();
+    //         return;
+    //       }
+    //     }
+
+    //     /* ---------- AUTO CLOSE ---------- */
+    //     if (redSignalId !== controlledSignal) {
+    //       console.log("Preconditions:", preconditions);
+    //       const stillValid = preconditions.some(seq =>
+    //         seq.every(rs => this.closedSignals.has(rs))
+    //       );
+
+
+    //       if (!stillValid && !this.closedSignals.has(controlledSignal)) {
+    //         this.closeRedSignalsByIds([controlledSignal]);
+    //       }
+    //     }
+
+    //     /* ---------- REVERSE FAULT LOGIC ---------- */
+    //     if (faultRule.reverse && !this.faultResolved) {
+
+    //       const reverseActive = faultRule.reverse.conditions.some(seq =>
+    //         seq.every(rs => !this.closedSignals.has(rs))
+    //       );
+
+    //       // auto trip
+    //       if (reverseActive && !this.closedSignals.has(faultRule.reverse.signal)) {
+    //         this.closeRedSignalsByIds([faultRule.reverse.signal]);
+    //       }
+
+    //       // open block
+    //       if (
+    //         redSignalId === faultRule.reverse.signal &&
+    //         state === 'open' &&
+    //         reverseActive
+    //       ) {
+    //         Swal.fire({
+    //           icon: 'warning',
+    //           title: 'Action Blocked',
+    //           html: `Reverse supply is blocked because fault is not resolved yet.`,
+    //         });
+    //         this.closeRedSignalsByIds([faultRule.reverse.signal]);
+    //         this.closePopup();
+    //         return;
+    //       }
+    //     }
+    //   }
+
+    //   /* ---------- RESOLUTION ---------- */
+    //   const required =
+    //     circuitRule.faultMode.resolutionMap[this.faultLine];
+
+    //   if (required && required.every(rs => this.closedSignals.has(rs))) {
+    //     this.faultResolved = true;
+    //   }
+    // }
+    // // ====================== END FAULT DETECTION ======================
+    
     // =====================================================
     // 🔴 FAULT MODE
+    // Preconditions arrays ab use nahi hote. Naya model:
+    // 1) faultResolved sirf resolutionMap se decide hota hai.
+    // 2) controlledSignal par manual block nahi; stroke guard trip karega.
+    // 3) Fault wali LG line green hui to MCB auto-trip.
     // =====================================================
     if (this.isFaultDetectionMode && circuitRule?.faultMode) {
 
@@ -2917,87 +1627,14 @@ export class CanvasComponent implements OnInit, OnDestroy {  // ✅ OnDestroy AD
       if (state === 'close') this.closedSignals.add(redSignalId);
       else this.closedSignals.delete(redSignalId);
 
-      const faultRule =
-        circuitRule.faultMode.preconditions[this.faultLine];
+      const required = circuitRule.faultMode.resolutionMap[this.faultLine];
 
-      if (faultRule) {
-
-        const controlledSignal = faultRule.controlledSignal;
-        const preconditions = faultRule.preconditions;
-
-        /* ---------- BLOCK OPEN ---------- */
-        if (redSignalId === controlledSignal && state === 'open') {
-
-          const canOpen = preconditions.some(seq =>
-            seq.every(rs => this.closedSignals.has(rs))
-          );
-
-          if (!canOpen) {
-            Swal.fire({
-              icon: 'warning',
-              title: 'Action Blocked',
-              html: `You cannot open FCB because fault is not resolved yet.`,
-            });
-
-            this.closedSignals.add(controlledSignal);
-            this.closePopup();
-            return;
-          }
-        }
-
-        /* ---------- AUTO CLOSE ---------- */
-        if (redSignalId !== controlledSignal) {
-          console.log("Preconditions:", preconditions);
-          const stillValid = preconditions.some(seq =>
-            seq.every(rs => this.closedSignals.has(rs))
-          );
-
-
-          if (!stillValid && !this.closedSignals.has(controlledSignal)) {
-            this.closeRedSignalsByIds([controlledSignal]);
-          }
-        }
-
-        /* ---------- REVERSE FAULT LOGIC ---------- */
-        if (faultRule.reverse && !this.faultResolved) {
-
-          const reverseActive = faultRule.reverse.conditions.some(seq =>
-            seq.every(rs => !this.closedSignals.has(rs))
-          );
-
-          // auto trip
-          if (reverseActive && !this.closedSignals.has(faultRule.reverse.signal)) {
-            this.closeRedSignalsByIds([faultRule.reverse.signal]);
-          }
-
-          // open block
-          if (
-            redSignalId === faultRule.reverse.signal &&
-            state === 'open' &&
-            reverseActive
-          ) {
-            Swal.fire({
-              icon: 'warning',
-              title: 'Action Blocked',
-              html: `Reverse supply is blocked because fault is not resolved yet.`,
-            });
-            this.closeRedSignalsByIds([faultRule.reverse.signal]);
-            this.closePopup();
-            return;
-          }
-        }
-      }
-
-      /* ---------- RESOLUTION ---------- */
-      const required =
-        circuitRule.faultMode.resolutionMap[this.faultLine];
-
-      if (required && required.every(rs => this.closedSignals.has(rs))) {
-        this.faultResolved = true;
-      }
+      this.faultResolved = !!required && required.length > 0
+        ? required.every(rs => this.closedSignals.has(rs))
+        : false;
     }
     // ====================== END FAULT DETECTION ======================
-
+    
     // Check if redSignal is override signal
     const isOverrideRedSignal = Object.keys(this.redSignalLineOverrideMap).some(key =>
       key.split(',').map(s => s.trim()).includes(redSignalId)
@@ -3423,6 +2060,7 @@ export class CanvasComponent implements OnInit, OnDestroy {  // ✅ OnDestroy AD
       if (switchObj) switchObj.set('visible', true);
     }
 
+    this.updateLineColors();
     this.canvas.renderAll();
     this.closeIdPopup();
   }
@@ -3586,6 +2224,7 @@ export class CanvasComponent implements OnInit, OnDestroy {  // ✅ OnDestroy AD
 
       data.swRef!.visible = false;
       data.joinLineRef!.visible = true;
+      this.updateLineColors();
       this.canvas.renderAll();
       this.closePopup();
     }
@@ -3600,6 +2239,7 @@ export class CanvasComponent implements OnInit, OnDestroy {  // ✅ OnDestroy AD
 
       data.joinLineRef!.visible = false;
       data.swRef!.visible = true;
+      this.updateLineColors();
       this.canvas.renderAll();
       this.closePopup();
     }
@@ -3614,16 +2254,26 @@ export class CanvasComponent implements OnInit, OnDestroy {  // ✅ OnDestroy AD
   //   //   mainCircuitLogic(this.canvas, this.closedSignals); // Generic fallback
   //   // }
   // }
-      private updateLineColors(): void {
-        console.log('🔵 closedSignals:', Array.from(this.closedSignals));
-        console.log('🔵 boardRules:', JSON.stringify(this.boardRules));
-        const lineIds = this.canvas.getObjects()
-          .filter(o => { const t = (o as any).customType; return t === 'lineG' || t === 'lineR'; })
-          .map(o => (o as any).customId);
-        console.log('🔵 line IDs on canvas:', lineIds);
+  private updateLineColors(): void {
+    console.log('🔵 closedSignals:', Array.from(this.closedSignals));
+    console.log('🔵 boardRules:', JSON.stringify(this.boardRules));
 
-        applyRulesToCanvas(this.canvas, this.closedSignals, this.boardRules);
+    const lineIds = this.canvas.getObjects()
+      .filter(o => { const t = (o as any).customType; return t === 'lineG' || t === 'lineR'; })
+      .map(o => (o as any).customId);
+    console.log('🔵 line IDs on canvas:', lineIds);
+
+    applyRulesToCanvas(this.canvas, this.closedSignals, this.boardRules || []);
+
+    if (!this.suppressFaultLineTripGuard) {
+      this.suppressFaultLineTripGuard = true;
+      try {
+        this.enforceFaultLineTripGuard();
+      } finally {
+        this.suppressFaultLineTripGuard = false;
       }
+    }
+  }
 
 
   // Creates the chosen symbol:
@@ -4321,7 +2971,7 @@ export class CanvasComponent implements OnInit, OnDestroy {  // ✅ OnDestroy AD
       console.log("Saved closedSignalsArray:", data.closedSignalsArray);
       
       await this.fetchRulesForCurrentCircuit();
-      await this.fetchFaultRulesForCurrentCircuit();
+      await this.fetchCircuitRulesForCurrentCircuit();
 
       if (this.selectedCircuitName === 'HSR_Board') {
         this.closedSignals.add('RS18');  // HSR board
@@ -4498,7 +3148,7 @@ export class CanvasComponent implements OnInit, OnDestroy {  // ✅ OnDestroy AD
 
 
 
-  // Saves the current canvas(except delete objects) as a JSON in a slot and also to the backend.
+ 
   // Save the current canvas (except delete objects) as a JSON in a slot and also to the backend.
   saveToSlot(slot: number): void {
     if (this.circuitNamePopupVisible) return; // prevent multiple popups
@@ -4546,7 +3196,7 @@ export class CanvasComponent implements OnInit, OnDestroy {  // ✅ OnDestroy AD
 
   this.circuitService.saveCircuit(saveData).subscribe({
     next: (response) => {
-      console.log('✅ circuit saved in canvas_data. Ab rules DB me daal raha hoon...');
+      console.log('✅ circuit saved in canvas_data. Now adding rules to db...');
       this.persistRulesForName(name);   // <-- YAHIN rules naam ke saath DB me jaate hain
       alert(`Circuit saved as "${name}"`);
       this.circuitNamePopupVisible = false;
@@ -4571,14 +3221,14 @@ private persistRulesForName(name: string) {
       error: () => this.createAllRules(name)   // delete fail ho to bhi create karo
     });
   } else {
-    console.warn('⚠️ deleteRulesByName service me nahi — seedha create kar raha hoon');
+    console.warn('⚠️ deleteRulesByName not in service — creating directly');
     this.createAllRules(name);
   }
 }
 
 private createAllRules(name: string) {
   if (!this.boardRules.length) {
-    console.warn('⚠️ boardRules KHAALI hai — kuch save nahi hoga. Pehle rule add karo, phir save.');
+    console.warn('⚠️ boardRules are empty — nothing to save. Please add rule then save');
     return;
   }
   this.boardRules.forEach(r => {
@@ -4589,7 +3239,7 @@ private createAllRules(name: string) {
       stroke: r.stroke || 'red',
       priority: r.priority || 1
     };
-    console.log('➕ creating rule payload:', payload);
+    console.log('creating rule payload:', payload);
     this.circuitService.createRule(payload).subscribe({
       next: (saved: any) => { r.id = saved?.id; console.log('✅ rule saved, id =', saved?.id); },
       error: (e) => console.error('❌ rule save FAIL:', e)
@@ -4774,66 +3424,183 @@ private fetchRulesForCurrentCircuit(): Promise<void> {
   });
 }
 
-// ===== Change 2: DB rows ko CircuitRuleSet shape me convert karta hai =====
-private buildCircuitRuleSet(rows: any[]): CircuitRuleSet {
-  const set: CircuitRuleSet = {
-    normalMode: [],
-    faultMode: { preconditions: {}, resolutionMap: {} }
-  };
+// ===== DB-driven Normal/Fault Mode Rules =====
+// Normal mode: normal_mode_rule table se preconditions aayengi.
+// Fault mode: fault_rule table se fault_line + controlled_signal + resolution aayega.
 
-  const safeParse = (s: any, fallback: any) => {
-    if (s === null || s === undefined || s === '') return fallback;
-    try { return JSON.parse(s); } catch { return fallback; }
-  };
+private safeParseJson<T = any>(value: any, fallback: T): T {
+  if (value === null || value === undefined || value === '') return fallback;
+  if (Array.isArray(value) || typeof value === 'object') return value as T;
 
-  // ---- NORMAL MODE ----
-  rows.filter(r => r.mode === 'normal')
-      .sort((a, b) => (a.priority ?? 0) - (b.priority ?? 0))
-      .forEach(r => {
-        const rule: NormalRule = {
-          controlledSignal: r.controlledSignal,
-          preconditions: safeParse(r.preconditions, [])
-        };
-        const rev = safeParse(r.reverseJson, null);
-        if (rev && rev.signal) rule.reverse = rev;
-        set.normalMode.push(rule);
-      });
-
-  // ---- FAULT MODE ----
-  rows.filter(r => r.mode === 'fault').forEach(r => {
-    const lg = r.ruleName;
-    if (!lg) return;
-
-    const pre = safeParse(r.preconditions, []);
-    if (r.controlledSignal && pre.length) {
-      const fr: FaultRule = { controlledSignal: r.controlledSignal, preconditions: pre };
-      const rev = safeParse(r.reverseJson, null);
-      if (rev && rev.signal) fr.reverse = rev;
-      set.faultMode.preconditions[lg] = fr;
-    }
-
-    const res = safeParse(r.resolution, null);
-    if (res && res.length) set.faultMode.resolutionMap[lg] = res;
-  });
-
-  return set;
+  try {
+    return JSON.parse(value) as T;
+  } catch (e) {
+    console.error('❌ JSON parse failed:', value, e);
+    return fallback;
+  }
 }
 
-// ===== Change 3: DB se fault rules le aata hai =====
-private fetchFaultRulesForCurrentCircuit(): Promise<void> {
+private getRowField(row: any, ...keys: string[]): any {
+  for (const key of keys) {
+    if (row && row[key] !== undefined && row[key] !== null) return row[key];
+  }
+  return undefined;
+}
+
+private createEmptyCircuitRuleSet(): CircuitRuleSet {
+  return {
+    normalMode: [],
+    faultMode: {
+      faultLines: {},
+      resolutionMap: {}
+    }
+  };
+}
+
+private fetchNormalModeRulesForCurrentCircuit(): Promise<NormalRule[]> {
   return new Promise((resolve) => {
-    if (!this.selectedCircuitName) { this.activeCircuitRule = null; resolve(); return; }
-    this.circuitService.getFaultRulesByName(this.selectedCircuitName).subscribe({
-      next: (rows) => {
-        this.activeCircuitRule = this.buildCircuitRuleSet(rows || []);
-        console.log('✅ Fault rules loaded for', this.selectedCircuitName,
-          '| normal:', this.activeCircuitRule.normalMode.length,
-          '| faultLines:', Object.keys(this.activeCircuitRule.faultMode.preconditions).length);
-        resolve();
+    if (!this.selectedCircuitName) {
+      resolve([]);
+      return;
+    }
+
+    this.circuitService.getNormalModeRulesByName(this.selectedCircuitName).subscribe({
+      next: (rows: any[]) => {
+        const normalRules: NormalRule[] = (rows || [])
+          .sort((a: any, b: any) => (a.priority ?? 0) - (b.priority ?? 0))
+          .map((r: any) => {
+            const controlledSignal = String(
+              this.getRowField(r, 'controlledSignal', 'controlled_signal') || ''
+            ).trim();
+
+            if (!controlledSignal) return null;
+
+            const rule: NormalRule = {
+              controlledSignal,
+              preconditions: this.safeParseJson<string[][]>(
+                this.getRowField(r, 'preconditions', 'preConditions'),
+                []
+              )
+            };
+
+            const rev = this.safeParseJson<any>(
+              this.getRowField(r, 'reverseJson', 'reverse_json'),
+              null
+            );
+
+            if (rev && rev.signal) {
+              rule.reverse = {
+                signal: rev.signal,
+                conditions: Array.isArray(rev.conditions) ? rev.conditions : []
+              };
+            }
+
+            return rule;
+          })
+          .filter((rule: NormalRule | null): rule is NormalRule => !!rule);
+
+        console.log('✅ Normal mode rules loaded:', normalRules.length, 'for', this.selectedCircuitName);
+        resolve(normalRules);
       },
-      error: (e) => { console.error('❌ fault rules fetch fail', e); this.activeCircuitRule = null; resolve(); }
+      error: (e: any) => {
+        console.error('❌ normal mode rules fetch fail', e);
+        resolve([]);
+      }
     });
   });
+}
+
+private fetchFaultModeRulesForCurrentCircuit(): Promise<{
+  faultLines: Record<string, FaultLineRule>;
+  resolutionMap: Record<string, string[]>;
+}> {
+  return new Promise((resolve) => {
+    const faultLines: Record<string, FaultLineRule> = {};
+    const resolutionMap: Record<string, string[]> = {};
+
+    if (!this.selectedCircuitName) {
+      resolve({ faultLines, resolutionMap });
+      return;
+    }
+
+    this.circuitService.getFaultRulesByName(this.selectedCircuitName).subscribe({
+      next: (rows: any[]) => {
+        (rows || [])
+          .sort((a: any, b: any) => (a.priority ?? 0) - (b.priority ?? 0))
+          .forEach((r: any) => {
+            const faultLine = String(
+              this.getRowField(r, 'faultLine', 'fault_line', 'ruleName', 'rule_name') || ''
+            ).trim();
+            if (!faultLine) return;
+
+            const controlledSignal = String(
+              this.getRowField(r, 'controlledSignal', 'controlled_signal') || ''
+            ).trim();
+
+            if (controlledSignal) {
+              faultLines[faultLine] = { controlledSignal };
+            }
+
+            const resolution = this.safeParseJson<string[]>(
+              this.getRowField(r, 'resolution', 'resolutionJson', 'resolution_json'),
+              []
+            );
+
+            if (Array.isArray(resolution) && resolution.length > 0) {
+              resolutionMap[faultLine] = resolution
+                .map(x => String(x).trim())
+                .filter(Boolean);
+            }
+          });
+
+        console.log(
+          '✅ Fault mode rules loaded:',
+          Object.keys(faultLines).length,
+          '| resolution:',
+          Object.keys(resolutionMap).length,
+          'for',
+          this.selectedCircuitName
+        );
+
+        resolve({ faultLines, resolutionMap });
+      },
+      error: (e: any) => {
+        console.error('❌ fault mode rules fetch fail', e);
+        resolve({ faultLines, resolutionMap });
+      }
+    });
+  });
+}
+
+private async fetchCircuitRulesForCurrentCircuit(): Promise<void> {
+  if (!this.selectedCircuitName) {
+    this.activeCircuitRule = null;
+    return;
+  }
+
+  const emptySet = this.createEmptyCircuitRuleSet();
+
+  const [normalMode, faultMode] = await Promise.all([
+    this.fetchNormalModeRulesForCurrentCircuit(),
+    this.fetchFaultModeRulesForCurrentCircuit()
+  ]);
+
+  this.activeCircuitRule = {
+    ...emptySet,
+    normalMode,
+    faultMode
+  };
+
+  console.log(
+    '✅ Circuit mode rules ready:',
+    this.selectedCircuitName,
+    '| normal:',
+    this.activeCircuitRule.normalMode.length,
+    '| faultLines:',
+    Object.keys(this.activeCircuitRule.faultMode.faultLines).length,
+    '| resolution:',
+    Object.keys(this.activeCircuitRule.faultMode.resolutionMap).length
+  );
 }
 
 

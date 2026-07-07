@@ -234,6 +234,36 @@ updateFaultRule(id: number, payload: any) {
 deleteFaultRulesByName(name: string) {
   return this.http.delete(`${this.baseUrl}/fault-rule/by-circuit`, { params: { name } });
 }
+// ====================================================
+// 🟩 NORMAL MODE RULE APIs
+// ====================================================
 
+getNormalModeRulesByName(name: string) {
+  return this.http.get<any[]>(
+    `${this.baseUrl}/normal-mode-rule/by-circuit`,
+    { params: { name } }
+  );
+}
+
+createNormalModeRule(payload: any) {
+  return this.http.post(
+    `${this.baseUrl}/normal-mode-rule`,
+    payload
+  );
+}
+
+updateNormalModeRule(id: number, payload: any) {
+  return this.http.put(
+    `${this.baseUrl}/normal-mode-rule/${id}`,
+    payload
+  );
+}
+
+deleteNormalModeRulesByName(name: string) {
+  return this.http.delete(
+    `${this.baseUrl}/normal-mode-rule/by-circuit`,
+    { params: { name } }
+  );
+}
 
 }
